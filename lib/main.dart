@@ -53,7 +53,6 @@ class SstpVpnApp extends StatelessWidget {
           primary: Color(0xFF00D2FF),
           secondary: Color(0xFF9D4EDD),
           surface: Color(0xFF151D30),
-          background: Color(0xFF0B0F19),
         ),
       ),
       home: const MainVpnScreen(),
@@ -857,9 +856,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                 height: 170,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: statusColor.withOpacity(0.06),
+                  color: statusColor.withValues(alpha: 0.06),
                   border: Border.all(
-                    color: statusColor.withOpacity(0.2),
+                    color: statusColor.withValues(alpha: 0.2),
                     width: 2,
                   ),
                 ),
@@ -870,10 +869,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                 height: 140,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withValues(alpha: 0.1),
                   boxShadow: [
                     BoxShadow(
-                      color: statusColor.withOpacity(0.15),
+                      color: statusColor.withValues(alpha: 0.15),
                       blurRadius: isConnecting ? 25 : 15,
                       spreadRadius: isConnecting ? 5 : 2,
                     ),
@@ -888,12 +887,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                   shape: BoxShape.circle,
                   color: const Color(0xFF1F293D),
                   border: Border.all(
-                    color: statusColor.withOpacity(0.8),
+                    color: statusColor.withValues(alpha: 0.8),
                     width: 4,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: statusColor.withOpacity(0.3),
+                      color: statusColor.withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 0),
                     ),
@@ -1003,8 +1002,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: _useCustomConfig
-                        ? Colors.orange.withOpacity(0.1)
-                        : Colors.cyan.withOpacity(0.1),
+                        ? Colors.orange.withValues(alpha: 0.1)
+                        : Colors.cyan.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -1262,7 +1261,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFF00D2FF).withOpacity(0.5)
+                      ? const Color(0xFF00D2FF).withValues(alpha: 0.5)
                       : Colors.transparent,
                   width: 1,
                 ),
@@ -1564,7 +1563,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                         ),
                         Switch(
                           value: _useCustomConfig,
-                          activeColor: const Color(0xFF00D2FF),
+                          activeThumbColor: const Color(0xFF00D2FF),
                           onChanged: (val) {
                             setModalState(() {
                               _useCustomConfig = val;
