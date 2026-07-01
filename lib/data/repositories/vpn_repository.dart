@@ -23,11 +23,22 @@ class VpnRepository {
   Future<String> getOrCreateDeviceId() =>
       _preferencesService.getOrCreateDeviceId();
 
+  Future<void> saveServersWithPing(List<VpnServer> servers) async {
+    await _preferencesService.saveServersWithPing(servers);
+    _cachedServers = servers;
+  }
+
+  Future<List<VpnServer>> loadServersWithPing() async {
+    return await _preferencesService.loadServersWithPing();
+  }
+
   Future<List<VpnServer>> fetchVpnServers() async {
     final username = await getUsername();
     final deviceId = await getOrCreateDeviceId();
     
     if (username.isEmpty || deviceId.isEmpty) {
+      _cachedServers = [];
+      await saveServersWithPing(_cachedServers);
       return [];
     }
 
@@ -35,6 +46,7 @@ class VpnRepository {
       username: username,
       deviceId: deviceId,
     );
+    await saveServersWithPing(servers);
     _cachedServers = servers;
     return servers;
   }

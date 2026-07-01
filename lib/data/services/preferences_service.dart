@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:advertising_id/advertising_id.dart';
 import 'package:flutter/foundation.dart';
+
+import '../models/vpn_server.dart';
 
 class PreferencesService {
   static const String _keyUsername = 'username';
@@ -28,7 +31,48 @@ class PreferencesService {
     return id;
   }
 
-  Future<String> _generateOrFetchDeviceId(SharedPreferences prefs) async {
+  Future<void> saveServersWithPing(List<VpnServer> servers) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final encodedServers = servers.map((server) => {
+      'id': server.id,
+      'hostname': server.hostname,
+      'ip': server.ip,
+      'port': server.port,
+      'key': server.key,
+      'sessions': server.sessions,
+      'info': server.info,
+      'info2': server.info2,
+      'country': server.country,
+      'countryShort': server.countryShort,
+      'locationName': server.locationName,
+      'ping': server.ping,
+    }).toList();
+    
+    final encodedString = jsonEncode(encodedServers);
+    await prefs.setString('servers_with_ping', encodedString);
+  }
+
+  Future<List<VpnServer>> loadServersWithPing() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encodedString = prefs.getString('servers_with_ping');
+    
+    if (encodedString == null || encodedString.isEmpty) {
+      return [];
+    }
+    
+    final List<dynamic> decodedList = jsonDecode(encodedString);
+    final servers = decodedList.map((item) {
+      final server = VpnServer.fromJson(item as Map<String, dynamic>);
+      final ping = item['ping'] as int?;
+      server.ping = ping;
+      return server;
+    }).toList();
+    
+    return servers;
+  }
+
+  Future<void> _generateOrFetchDeviceId(SharedPreferences prefs) async {
     // Try to get Google Ads ID (Advertising ID)
     try {
       String? adId = await AdvertisingId.id(true);

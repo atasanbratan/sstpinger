@@ -324,6 +324,17 @@ class VpnViewModel extends ChangeNotifier {
     _isPinging = false;
     notifyListeners();
 
+    // Save servers with ping times to preferences
+    await _repository.saveServersWithPing(_servers);
+
     // _showSnackBar("Servers sorted by latency.");
+  }
+
+  void _loadCachedServers() async {
+    final cachedServers = await _repository.loadServersWithPing();
+    if (cachedServers.isNotEmpty && _servers.isEmpty) {
+      _servers = cachedServers;
+      notifyListeners();
+    }
   }
 }
