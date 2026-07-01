@@ -27,6 +27,25 @@ class VpnServer {
     this.ping,
   });
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'hostname': hostname,
+      'ip': ip,
+      'port': port,
+      'key': key,
+      'sessions': sessions,
+      'info': info,
+      'info2': info2,
+      'location': {
+        'country': country,
+        'short': countryShort,
+        'name': locationName,
+      },
+      if (ping != null) 'ping': ping,
+    };
+  }
+
   factory VpnServer.fromJson(Map<String, dynamic> json) {
     final loc = json['location'] as Map<String, dynamic>? ?? {};
     return VpnServer(
@@ -41,6 +60,7 @@ class VpnServer {
       country: loc['country'] as String? ?? '',
       countryShort: loc['short'] as String? ?? '',
       locationName: loc['name'] as String? ?? '',
+      ping: json['ping'] as int?,
     );
   }
 }

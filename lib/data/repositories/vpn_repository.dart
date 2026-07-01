@@ -50,4 +50,16 @@ class VpnRepository {
     _cachedServers = servers;
     return servers;
   }
+
+  Future<void> saveServerPing(VpnServer server, int ping) {
+    final updatedServers = _cachedServers.map((existingServer) {
+      if (existingServer.id == server.id) {
+        final updated = VpnServer.fromJson(existingServer.toJson());
+        updated.ping = ping;
+        return updated;
+      }
+      return existingServer;
+    }).toList();
+    return saveServersWithPing(updatedServers);
+  }
 }

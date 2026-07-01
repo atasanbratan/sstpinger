@@ -156,7 +156,8 @@ class VpnViewModel extends ChangeNotifier {
         _selectedServer = _servers.first;
       }
     } catch (e) {
-      _serverFetchError = e.toString().replaceFirst('Exception: ', '');
+      onErrorMessage?.call(e.toString().replaceFirst('Exception: ', ''));
+      // _serverFetchError = e.toString().replaceFirst('Exception: ', '');
     } finally {
       _isFetchingServers = false;
       notifyListeners();
@@ -311,7 +312,11 @@ class VpnViewModel extends ChangeNotifier {
 
       await Future.wait(
         batch.map((server) async {
-          server.ping = await _pingServer(server);
+          final ping = await _pingServer(server);
+          if (ping != null) {
+            server.ping = ping;
+            await _repository.saveServerPing(server, ping);
+          }
         }),
       );
     }

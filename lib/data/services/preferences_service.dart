@@ -62,14 +62,7 @@ class PreferencesService {
     }
     
     final List<dynamic> decodedList = jsonDecode(encodedString);
-    final servers = decodedList.map((item) {
-      final server = VpnServer.fromJson(item as Map<String, dynamic>);
-      final ping = item['ping'] as int?;
-      server.ping = ping;
-      return server;
-    }).toList();
-    
-    return servers;
+    return decodedList.map((item) => VpnServer.fromJson(item as Map<String, dynamic>)).toList();
   }
 
   Future<void> _generateOrFetchDeviceId(SharedPreferences prefs) async {
