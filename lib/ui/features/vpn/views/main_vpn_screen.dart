@@ -101,6 +101,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             ),
             actions: [
               IconButton(
+                icon: vm.isPinging
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.speed, color: Colors.white70),
+                tooltip: "Sort by Ping",
+                onPressed: vm.isPinging ? null : vm.sortServersByPing,
+              ),
+              IconButton(
                 icon: const Icon(Icons.refresh, color: Colors.white70),
                 tooltip: 'Refresh server list',
                 onPressed: vm.isFetchingServers ? null : vm.fetchServers,

@@ -20,7 +20,6 @@ class AppTheme {
         primary: Color(0xFF00D2FF),
         secondary: Color(0xFF9D4EDD),
         surface: Color(0xFF151D30),
-        background: Color(0xFF0B0F19),
       ),
     );
   }

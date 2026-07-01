@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sstp_flutter/sstp_flutter.dart';
 import 'package:sstp_flutter/server.dart';
@@ -25,6 +26,9 @@ class VpnViewModel extends ChangeNotifier {
   void Function(String)? onErrorMessage;
 
   // State fields
+  bool _isPinging = false;
+  bool get isPinging => _isPinging;
+
   bool _initialized = false;
   bool get initialized => _initialized;
 
@@ -272,5 +276,54 @@ class VpnViewModel extends ChangeNotifier {
         onErrorMessage?.call('Error starting VPN: $e');
       }
     }
+  }
+
+  Future<int?> _pingServer(VpnServer server) async {
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      final socket = await Socket.connect(
+        server.ip,
+        server.port,
+        timeout: const Duration(seconds: 3),
+      );
+
+      stopwatch.stop();
+      await socket.close();
+
+      return stopwatch.elapsedMilliseconds;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> sortServersByPing() async {
+    if (_isPinging || _servers.isEmpty) return;
+
+    _isPinging = true;
+    notifyListeners();
+
+    const batchSize = 25;
+
+    for (int i = 0; i < _servers.length; i += batchSize) {
+      final batch = _servers.skip(i).take(batchSize);
+
+      await Future.wait(
+        batch.map((server) async {
+          server.ping = await _pingServer(server);
+        }),
+      );
+    }
+
+    _servers.sort((a, b) {
+      final pa = a.ping ?? 999999;
+      final pb = b.ping ?? 999999;
+      return pa.compareTo(pb);
+    });
+
+    _isPinging = false;
+    notifyListeners();
+
+    // _showSnackBar("Servers sorted by latency.");
   }
 }

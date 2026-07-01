@@ -44,9 +44,9 @@ class ConnectionStatusPanel extends StatelessWidget {
                 height: 170,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: statusColor.withOpacity(0.06),
+                  color: statusColor.withValues(alpha: 0.06),
                   border: Border.all(
-                    color: statusColor.withOpacity(0.2),
+                    color: statusColor.withValues(alpha: 0.2),
                     width: 2,
                   ),
                 ),
@@ -56,10 +56,10 @@ class ConnectionStatusPanel extends StatelessWidget {
                 height: 140,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: statusColor.withOpacity(0.1),
+                  color: statusColor.withValues(alpha: 0.1),
                   boxShadow: [
                     BoxShadow(
-                      color: statusColor.withOpacity(0.15),
+                      color: statusColor.withValues(alpha: 0.15),
                       blurRadius: isConnecting ? 25 : 15,
                       spreadRadius: isConnecting ? 5 : 2,
                     ),
@@ -73,12 +73,12 @@ class ConnectionStatusPanel extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: const Color(0xFF1F293D),
                   border: Border.all(
-                    color: statusColor.withOpacity(0.8),
+                    color: statusColor.withValues(alpha: 0.8),
                     width: 4,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: statusColor.withOpacity(0.3),
+                      color: statusColor.withValues(alpha: 0.3),
                       blurRadius: 15,
                       offset: const Offset(0, 0),
                     ),

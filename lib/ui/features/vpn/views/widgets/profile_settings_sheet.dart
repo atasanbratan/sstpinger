@@ -178,7 +178,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                     ),
                     Switch(
                       value: viewModel.useCustomConfig,
-                      activeColor: const Color(0xFF00D2FF),
+                      activeThumbColor: const Color(0xFF00D2FF),
                       onChanged: (val) {
                         setModalState(() {
                           onUseCustomConfigChanged(val);

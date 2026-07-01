@@ -96,8 +96,8 @@ class ConnectionControlCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: viewModel.useCustomConfig
-                        ? Colors.orange.withOpacity(0.1)
-                        : Colors.cyan.withOpacity(0.1),
+                        ? Colors.orange.withValues(alpha: 0.1)
+                        : Colors.cyan.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(

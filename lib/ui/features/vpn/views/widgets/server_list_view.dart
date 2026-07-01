@@ -125,7 +125,7 @@ class ServerListView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFF00D2FF).withOpacity(0.5)
+                      ? const Color(0xFF00D2FF).withValues(alpha: 0.5)
                       : Colors.transparent,
                   width: 1,
                 ),
@@ -172,7 +172,8 @@ class ServerListView extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              '${server.ip}:${server.port}',
+                              '${server.info2}',
+                              // '${server.ip}:${server.port}',
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.cyan[200],
