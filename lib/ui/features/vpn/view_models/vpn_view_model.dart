@@ -95,6 +95,7 @@ class VpnViewModel extends ChangeNotifier {
     _deviceId = await _repository.getOrCreateDeviceId();
     await _checkLastStatus();
     _setupSstpListener();
+    _loadCachedServers();
     if (_username.isNotEmpty) {
       await fetchServers();
     }
@@ -330,11 +331,12 @@ class VpnViewModel extends ChangeNotifier {
     // _showSnackBar("Servers sorted by latency.");
   }
 
-  void _loadCachedServers() async {
-    final cachedServers = await _repository.loadServersWithPing();
-    if (cachedServers.isNotEmpty && _servers.isEmpty) {
-      _servers = cachedServers;
-      notifyListeners();
-    }
+  void _loadCachedServers() {
+    _repository.loadServersWithPing().then((cachedServers) {
+      if (cachedServers.isNotEmpty && _servers.isEmpty) {
+        _servers = cachedServers;
+        notifyListeners();
+      }
+    });
   }
 }

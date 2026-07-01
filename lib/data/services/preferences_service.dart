@@ -27,8 +27,8 @@ class PreferencesService {
       return cachedId;
     }
 
-    String id = await _generateOrFetchDeviceId(prefs);
-    return id;
+    await _generateOrFetchDeviceId(prefs);
+    return prefs.getString(_keyDeviceId) ?? '';
   }
 
   Future<void> saveServersWithPing(List<VpnServer> servers) async {
@@ -80,7 +80,7 @@ class PreferencesService {
           adId.isNotEmpty &&
           adId != "00000000-0000-0000-0000-000000000000") {
         await prefs.setString(_keyDeviceId, adId);
-        return adId;
+        return;
       }
     } catch (e) {
       debugPrint('Failed to get Advertising ID: $e');
@@ -99,6 +99,5 @@ class PreferencesService {
         '${hexList.sublist(0, 4).join()}-${hexList.sublist(4, 6).join()}-${hexList.sublist(6, 8).join()}-${hexList.sublist(8, 10).join()}-${hexList.sublist(10, 16).join()}';
 
     await prefs.setString(_keyDeviceId, uuid);
-    return uuid;
   }
 }
