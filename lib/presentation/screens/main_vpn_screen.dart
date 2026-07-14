@@ -9,7 +9,7 @@ import '../bloc/connection/connection_bloc.dart';
 import '../bloc/vpn/vpn_bloc.dart';
 import '../theme/app_colors.dart';
 import '../widgets/connection_control_card.dart';
-import '../widgets/connection_status_panel.dart';
+import '../widgets/power_button.dart';
 import '../widgets/profile_settings_sheet.dart';
 import '../widgets/server_list_view.dart';
 import 'activation_screen.dart';
@@ -197,80 +197,53 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
               backgroundColor: Colors.transparent,
               elevation: 0,
               pinned: true,
+              leading: IconButton(
+                icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+                tooltip: 'Settings / Profile',
+                onPressed: _showProfileAndSettingsModal,
+              ),
               title: Row(
                 children: [
-                  Image.asset('assets/logo/logo.png', width: 28, height: 28),
+                  Image.asset('assets/logo/logo.png', width: 24, height: 24),
                   const SizedBox(width: 8),
                   Text(
                     'SSTP SHIELD',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       letterSpacing: 2,
-                      fontSize: 20,
+                      fontSize: 17,
                     ),
                   ),
                 ],
               ),
               actions: [
-                BlocBuilder<ConnectionBloc, VpnConnectionState>(
-                  builder: (context, conn) => IconButton(
-                    icon: vpn.isPinging
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            Icons.speed,
-                            color: conn.isConnected
-                                ? Colors.white24
-                                : Colors.white70,
-                          ),
-                    tooltip: conn.isConnected
-                        ? "Disconnect to ping servers"
-                        : "Sort by Ping",
-                    onPressed: vpn.isPinging
-                        ? null
-                        : () => context.read<VpnBloc>().add(
-                            PingRequested(isConnected: conn.isConnected),
-                          ),
-                  ),
-                ),
                 IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white70),
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
                   tooltip: 'Refresh server list',
                   onPressed: vpn.isFetchingServers
                       ? null
-                      : () => context.read<VpnBloc>().add(
-                          const ServersFetchRequested(),
-                        ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.settings_outlined,
-                    color: Colors.white70,
-                  ),
-                  tooltip: 'Settings / Profile',
-                  onPressed: _showProfileAndSettingsModal,
+                      : () =>
+                          context.read<VpnBloc>().add(const ServersFetchRequested()),
                 ),
               ],
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                padding: const EdgeInsets.symmetric(horizontal: 18.0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
+                    // Hero: the power button and the node it will use.
                     BlocBuilder<ConnectionBloc, VpnConnectionState>(
                       builder: (context, conn) => Column(
                         children: [
-                          ConnectionStatusPanel(
+                          PowerButton(
                             status: conn.status,
                             duration: conn.duration,
                             onToggle: () =>
                                 _toggleConnection(vpn, conn.isConnected),
                           ),
-                          const SizedBox(height: 25),
+                          const SizedBox(height: 18),
                           ConnectionControlCard(
                             isConnected: conn.isConnected,
                             server: vpn.selectedServer,
@@ -282,17 +255,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 28),
                     _buildServersHeader(vpn),
+                    const SizedBox(height: 10),
+                    _buildSearchRow(vpn),
                     if (vpn.isPinging) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: vpn.pingTotal == 0
                               ? null
                               : vpn.pingProgress / vpn.pingTotal,
-                          minHeight: 4,
+                          minHeight: 3,
                           backgroundColor: AppColors.surface,
                           valueColor: const AlwaysStoppedAnimation(
                             AppColors.accent,
@@ -300,9 +275,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 10),
-                    _buildSearchField(vpn),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     const ServerListView(),
                     const SizedBox(height: 40),
                   ],
@@ -318,63 +291,124 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   Widget _buildServersHeader(VpnState vpn) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          'VPN SERVERS',
+        const Text(
+          'Servers',
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-            color: Colors.grey[400],
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
           ),
         ),
         Text(
           vpn.isPinging
               ? 'Pinging ${vpn.pingProgress}/${vpn.pingTotal} · ${vpn.pingPercent}%'
-              : '${vpn.filteredServers.length} Available',
+              : '${vpn.filteredServers.length} available',
           style: TextStyle(
             fontSize: 12,
             fontWeight: vpn.isPinging ? FontWeight.bold : FontWeight.normal,
-            color: vpn.isPinging ? AppColors.accent : Colors.grey[500],
+            color: vpn.isPinging ? AppColors.accent : AppColors.textFaint,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSearchField(VpnState vpn) {
-    return TextField(
-      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-      decoration: InputDecoration(
-        hintText: 'Search by country or hostname...',
-        hintStyle: const TextStyle(color: AppColors.textFaint),
-        prefixIcon: const Icon(
-          Icons.search,
-          color: AppColors.textMuted,
-          size: 20,
-        ),
-        suffixIcon: vpn.searchQuery.isNotEmpty
-            ? IconButton(
-                icon: const Icon(
-                  Icons.clear,
-                  color: AppColors.textMuted,
-                  size: 20,
+  /// Search field with the ping-all action beside it, as in Happ's server pane.
+  Widget _buildSearchRow(VpnState vpn) {
+    return BlocBuilder<ConnectionBloc, VpnConnectionState>(
+      builder: (context, conn) => Row(
+        children: [
+          Expanded(
+            child: TextField(
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Type here to search',
+                hintStyle: const TextStyle(color: AppColors.textFaint),
+                suffixIcon: vpn.searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(
+                          Icons.clear_rounded,
+                          color: AppColors.textMuted,
+                          size: 18,
+                        ),
+                        onPressed: () => context.read<VpnBloc>().add(
+                          const SearchQueryChanged(''),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.search_rounded,
+                        color: AppColors.textMuted,
+                        size: 20,
+                      ),
+                filled: true,
+                fillColor: AppColors.inputBackground,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 16,
                 ),
-                onPressed: () =>
-                    context.read<VpnBloc>().add(const SearchQueryChanged('')),
-              )
-            : null,
-        filled: true,
-        fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.divider),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.divider),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.accentBorder),
+                ),
+              ),
+              onChanged: (q) =>
+                  context.read<VpnBloc>().add(SearchQueryChanged(q)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Ping every server and sort fastest-first.
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.inputBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: IconButton(
+              iconSize: 20,
+              tooltip: conn.isConnected
+                  ? 'Disconnect to ping servers'
+                  : 'Ping all and sort',
+              onPressed: vpn.isPinging
+                  ? null
+                  : () => context.read<VpnBloc>().add(
+                      PingRequested(isConnected: conn.isConnected),
+                    ),
+              icon: vpn.isPinging
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.accent,
+                      ),
+                    )
+                  : Icon(
+                      Icons.speed_rounded,
+                      color: conn.isConnected
+                          ? AppColors.textFaint
+                          : AppColors.accent,
+                    ),
+            ),
+          ),
+        ],
       ),
-      onChanged: (q) => context.read<VpnBloc>().add(SearchQueryChanged(q)),
     );
   }
+
 
   void _openSubscription() {
     Navigator.of(context).push(

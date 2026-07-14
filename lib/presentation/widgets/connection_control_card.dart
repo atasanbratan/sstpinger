@@ -7,6 +7,8 @@ import '../../domain/entities/vpn_server.dart';
 import '../theme/app_colors.dart';
 import 'speed_indicator.dart';
 
+/// The node the app will connect to (or is connected to), shown centred beneath
+/// the power button: flag, name, endpoint, and — while connected — throughput.
 class ConnectionControlCard extends StatelessWidget {
   final bool isConnected;
   final VpnServer? server;
@@ -29,104 +31,73 @@ class ConnectionControlCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final custom = useCustomConfig;
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: AppColors.surface,
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(18.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceDeep,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    custom
-                        ? '🔧'
-                        : (server != null
-                              ? countryFlagEmoji(server!.countryShort)
-                              : '🌐'),
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        custom
-                            ? 'Custom Node Configuration'
-                            : (server != null
-                                  ? server!.country.toUpperCase()
-                                  : 'No Node Selected'),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        custom
-                            ? '$customHost:$customPort'
-                            : (server != null
-                                  ? server!.hostname
-                                  : 'Select from server list below'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: (custom ? AppColors.connecting : AppColors.accent)
-                        .withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    custom ? 'CUSTOM' : 'API NODES',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: custom ? AppColors.connecting : AppColors.accent,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+    final String name = custom
+        ? 'Custom node'
+        : (server?.country.toUpperCase() ?? 'NO NODE SELECTED');
+    final String subtitle = custom
+        ? '$customHost:$customPort'
+        : (server?.hostname ?? 'Pick one from the list below');
+
+    return Column(
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.surfaceDeep,
+            border: Border.all(color: AppColors.divider),
+          ),
+          child: Text(
+            custom
+                ? '🔧'
+                : (server != null ? countryFlagEmoji(server!.countryShort) : '🌐'),
+            style: const TextStyle(fontSize: 24),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, color: AppColors.textFaint),
+        ),
+        if (isConnected) ...[
+          const SizedBox(height: 16),
+          Card(
+            margin: EdgeInsets.zero,
+            color: AppColors.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
             ),
-            if (isConnected) ...[
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12.0),
-                child: Divider(color: AppColors.divider),
-              ),
-              Row(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   SpeedIndicator(
-                    label: 'DOWNLOAD SPEED',
+                    label: 'DOWNLOAD',
                     speed: Formatters.speed(traffic?.downloadTraffic ?? 0),
                     total: Formatters.bytes(traffic?.totalDownloadTraffic ?? 0),
                     icon: Icons.arrow_downward_rounded,
                     color: AppColors.accent,
                   ),
-                  Container(height: 40, width: 1, color: AppColors.divider),
+                  Container(height: 36, width: 1, color: AppColors.divider),
                   SpeedIndicator(
-                    label: 'UPLOAD SPEED',
+                    label: 'UPLOAD',
                     speed: Formatters.speed(traffic?.uploadTraffic ?? 0),
                     total: Formatters.bytes(traffic?.totalUploadTraffic ?? 0),
                     icon: Icons.arrow_upward_rounded,
@@ -134,10 +105,10 @@ class ConnectionControlCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ],
-          ],
-        ),
-      ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -180,6 +180,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                           backgroundColor: AppColors.accent,
                           foregroundColor: AppColors.surfaceDeep,
                           padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         child: isSubmitting
                             ? const SizedBox(
@@ -243,6 +246,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 backgroundColor: AppColors.accent,
                 foregroundColor: AppColors.surfaceDeep,
                 padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
               child: isStartingTrial
                   ? const SizedBox(

@@ -76,88 +76,55 @@ class ActivationScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 48),
 
-                // Welcome card
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  color: AppColors.surfaceCard,
-                  elevation: 8,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Let\'s Get Started',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Paste your activation code',
-                          style: TextStyle(fontSize: 12, color: Colors.white70),
-                        ),
-                        const SizedBox(height: 20),
+                const Text(
+                  'Paste your activation code to get started.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 28),
 
-                        InkWell(
-                          onTap: () => _pasteFromClipboard(context),
-                          borderRadius: BorderRadius.circular(14),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              color: AppColors.inputBackground,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: AppColors.accentBorderFaint,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(18),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 30,
-                                    height: 30,
-                                    child: isImporting
-                                        ? const CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            color: AppColors.accent,
-                                          )
-                                        : const Icon(
-                                            Icons.content_paste_rounded,
-                                            color: AppColors.accent,
-                                            size: 30,
-                                          ),
+                // A single, prominent pill action — the shape Happ uses for its
+                // Clipboard / QR-Code controls.
+                Material(
+                  color: AppColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(18),
+                  child: InkWell(
+                    onTap: () => _pasteFromClipboard(context),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.accentBorderFaint),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: isImporting
+                                ? const CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: AppColors.accent,
+                                  )
+                                : const Icon(
+                                    Icons.content_paste_rounded,
+                                    color: AppColors.accent,
+                                    size: 22,
                                   ),
-                                  const SizedBox(width: 16),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        isImporting
-                                            ? 'Activating…'
-                                            : 'Import activation code',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        'Paste from clipboard',
-                                        style: TextStyle(color: Colors.white54),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            isImporting ? 'Activating…' : 'Clipboard',
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

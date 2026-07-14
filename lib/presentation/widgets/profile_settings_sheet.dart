@@ -44,7 +44,7 @@ class ProfileSettingsSheet extends StatelessWidget {
 
     return Card(
       color: AppColors.surfaceRaised,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -114,7 +114,7 @@ class ProfileSettingsSheet extends StatelessWidget {
 
     return Card(
       color: AppColors.surfaceRaised,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
@@ -208,7 +208,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                     height: 5,
                     decoration: BoxDecoration(
                       color: Colors.white24,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),
@@ -236,7 +236,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                 Card(
                   color: AppColors.surfaceRaised,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -356,7 +356,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                       side: const BorderSide(color: AppColors.accentBorder),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                   ),

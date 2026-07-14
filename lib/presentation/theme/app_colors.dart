@@ -43,6 +43,11 @@ class AppColors {
   static const Color accentBorder = Color(0x5500D2FF);
   static const Color accentBorderFaint = Color(0x3300D2FF);
 
+  // Server list rows (Happ-style grouped list).
+  static const Color row = Color(0xFF131A2B);
+  static const Color rowSelected = Color(0xFF1B2740);
+  static const Color groupHeader = Color(0xFF161F34);
+
   // Text tints (on dark surfaces).
   static const Color textPrimary = Colors.white;
   static const Color textSecondary = Colors.white70;
