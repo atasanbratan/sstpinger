@@ -93,14 +93,22 @@ class DesktopTunnelDataSource implements TunnelDataSource {
 
   @override
   Future<void> connect(TunnelConfig config) async {
-    await _client.connect(
-      host: config.host,
-      port: config.port,
-      username: config.username,
-      password: config.password,
-      verifyCert: false, // VPN Gate servers are self-signed.
-      routeMode: RouteMode.full,
-    );
+    try {
+      await _client.connect(
+        host: config.host,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+        verifyCert: false, // VPN Gate servers are self-signed.
+        routeMode: RouteMode.full,
+      );
+    } on SstpVpnException catch (e) {
+      // Cancelling mid-handshake completes the pending connect() with an error.
+      // That is not a failure worth telling the user about — they asked for it,
+      // and the status stream has already reported `disconnected`.
+      if (e.status == VpnStatus.disconnected) return;
+      rethrow;
+    }
   }
 
   @override

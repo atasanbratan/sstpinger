@@ -38,9 +38,26 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
       lastFetch: DateTime.now(),
     );
 
-    _cached = response.servers;
+    // The backend does not know our latency measurements, so a fetch would
+    // otherwise wipe every ping value the user just measured (on launch, and on
+    // every Refresh). Carry them over by endpoint.
+    _cached = await _withKnownPings(response.servers);
     await _prefs.saveServersWithPing(_cached);
     return _cached;
+  }
+
+  /// Re-applies previously measured ping values to [fresh], matching on
+  /// `ip:port` — the backend's `id` can change, the endpoint does not.
+  Future<List<VpnServer>> _withKnownPings(List<VpnServer> fresh) async {
+    final known = <String, int>{
+      for (final s in [..._cached, ...await _prefs.loadServersWithPing()])
+        if (s.ping != null) s.endpoint: s.ping!,
+    };
+    if (known.isEmpty) return fresh;
+    return [
+      for (final s in fresh)
+        known.containsKey(s.endpoint) ? s.copyWith(ping: known[s.endpoint]) : s,
+    ];
   }
 
   @override
