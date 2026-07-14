@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:460813140850:android:ce9f8b7b6d21285f2693eb",
         "android_client_info": {
-          "package_name": "com.atasanbratan.sstpinger.sstpinger"
+          "package_name": "com.atasanbratan.sstp_shield"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "460813140850-havreaclpsu1qv6j2jbdki569755g9eb.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.atasanbratan.sstpinger.sstpinger",
+            "package_name": "com.atasanbratan.sstp_shield",
             "certificate_hash": "631ac8ebb9a9acb1371b69e39ddccf93191f87c2"
           }
         },
@@ -25,7 +25,7 @@
           "client_id": "460813140850-pf4n01aru2819u1g0fktfi1bflds6pr4.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.atasanbratan.sstpinger.sstpinger",
+            "package_name": "com.atasanbratan.sstp_shield",
             "certificate_hash": "c0e598538cb882c032d0c534f15a36fac4fbcf70"
           }
         },
@@ -50,7 +50,7 @@
               "client_id": "460813140850-ajlqhu4cp7lkdb2ausmcffkiqo9tinee.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.atasanbratan.sstpinger.sstpinger"
+                "bundle_id": "com.atasanbratan.sstp_shield"
               }
             }
           ]
