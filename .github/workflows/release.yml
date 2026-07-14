@@ -1,0 +1,178 @@
+# Builds SSTP Shield for Android, Linux and Windows, and — when a version tag is
+# pushed — attaches the results to a GitHub Release.
+#
+#   push to main / PR : build all three, upload as workflow artifacts (a smoke
+#                       test; nothing is published)
+#   push a v* tag     : the same builds, plus a GitHub Release carrying them
+#
+# Android is signed with a REAL release key, supplied through repository secrets
+# (never committed — this repo is public). If the secrets are absent the build
+# still runs but falls back to debug keys and says so; such an APK is not
+# distributable, so tag builds require the secrets to be set.
+
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the Release on a tag
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - run: flutter pub get
+      - run: flutter analyze
+
+  android:
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+
+      # Reconstruct the signing material from secrets. KEYSTORE_BASE64 is the
+      # .jks run through `base64 -w0`. Without it, the Gradle script warns and
+      # uses debug keys (fine for a branch smoke-test, refused for a tag below).
+      - name: Write signing config
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.jks
+          cat > android/key.properties <<EOF
+          storeFile=release.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      # A tagged (i.e. published) build MUST be properly signed. Fail loudly
+      # rather than attach a debug-signed APK to a Release.
+      - name: Require signing for tagged releases
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.KEYSTORE_BASE64 == '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "::error::Tagged release but signing secrets are not set. Add KEYSTORE_BASE64, STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD."
+          exit 1
+
+      - run: flutter pub get
+      - name: Build APK (local + foreign share the standard flavor)
+        run: |
+          flutter build apk --release --flavor standard --target lib/main.dart
+          mv build/app/outputs/flutter-apk/app-standard-release.apk \
+             sstp-shield-local.apk
+          flutter build apk --release --flavor standard --target lib/main_foreign.dart
+          mv build/app/outputs/flutter-apk/app-standard-release.apk \
+             sstp-shield-foreign.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: sstp-shield-*.apk
+          if-no-files-found: error
+
+  linux:
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config
+      - run: flutter pub get
+      - run: flutter build linux --release --target lib/main.dart
+
+      # Ship the privilege setup with the bundle: it creates a TUN device, which
+      # needs CAP_NET_ADMIN, and the setup is three non-obvious steps. The bundle
+      # alone is a trap. (The script can't run in CI — it bakes an absolute
+      # RUNPATH for the machine the bundle finally lives on.)
+      - name: Package
+        run: |
+          STAGE=sstp-shield-linux-x64
+          mkdir -p "$STAGE"
+          cp -r build/linux/x64/release/bundle/. "$STAGE/"
+          # setup_privilege.sh + ip_wrapper.c come from the plugin.
+          git clone --depth 1 https://github.com/atasanbratan/sstp_vpn_plugin.git /tmp/plugin
+          mkdir -p "$STAGE/tool"
+          cp /tmp/plugin/tool/setup_privilege.sh /tmp/plugin/tool/ip_wrapper.c "$STAGE/tool/"
+          cat > "$STAGE/README-FIRST.txt" <<'EOF'
+          Do NOT run this with sudo.
+          Grant CAP_NET_ADMIN once (needs gcc, libcap, patchelf), then launch the
+          generated sstp-vpn script — not the binary:
+              ./tool/setup_privilege.sh ./sstpinger
+              ./sstp-vpn
+          EOF
+          tar czf sstp-shield-linux-x64.tar.gz "$STAGE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: sstp-shield-linux-x64.tar.gz
+          if-no-files-found: error
+
+  windows:
+    needs: analyze
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - run: flutter pub get
+      - run: flutter build windows --release --target lib/main.dart
+
+      # Guard the two things that fail silently on this platform (both proven in
+      # sstp_vpn_plugin's own CI): the bundled Wintun DLL, and the elevation
+      # request without which every connect() dies as missingPrivilege.
+      - name: Verify Wintun bundled and exe is elevated
+        shell: pwsh
+        run: |
+          $out = "build/windows/x64/runner/Release"
+          if (-not (Test-Path "$out/wintun.dll")) { throw "wintun.dll missing from $out" }
+          $exe = "$out/sstpinger.exe"
+          $txt = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($exe))
+          if ($txt -notmatch "requireAdministrator") {
+            throw "$exe is not marked requireAdministrator — check /MANIFESTUAC in windows/runner/CMakeLists.txt"
+          }
+          Write-Host "OK: wintun.dll bundled and exe requests elevation."
+
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath sstp-shield-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: sstp-shield-windows-x64.zip
+          if-no-files-found: error
+
+  release:
+    # Only on a version tag. Gathers the three platform artifacts into one Release.
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [android, linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist }
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

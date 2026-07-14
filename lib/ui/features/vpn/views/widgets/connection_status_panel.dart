@@ -1,34 +1,34 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/utils/formatters.dart';
+import '../../../../core/app_colors.dart';
 import '../../view_models/vpn_view_model.dart';
 
 class ConnectionStatusPanel extends StatelessWidget {
   final VpnViewModel viewModel;
   final VoidCallback onToggle;
-  final String Function(Duration) formatDuration;
 
   const ConnectionStatusPanel({
     super.key,
     required this.viewModel,
     required this.onToggle,
-    required this.formatDuration,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isConnected =
-        viewModel.connectionStatus == SSTPConnectionStatusKeys.CONNECTED;
+        viewModel.connectionStatus == SSTPConnectionStatusKeys.connected;
     final bool isConnecting =
-        viewModel.connectionStatus == SSTPConnectionStatusKeys.CONNECTING;
+        viewModel.connectionStatus == SSTPConnectionStatusKeys.connecting;
 
-    Color statusColor = Colors.grey;
+    Color statusColor = AppColors.disconnected;
     String statusText = 'DISCONNECTED';
 
     if (isConnected) {
-      statusColor = const Color(0xFF10B981);
+      statusColor = AppColors.connected;
       statusText = 'CONNECTED';
     } else if (isConnecting) {
-      statusColor = const Color(0xFFF59E0B);
+      statusColor = AppColors.connecting;
       statusText = 'CONNECTING...';
     }
 
@@ -71,7 +71,7 @@ class ConnectionStatusPanel extends StatelessWidget {
                 height: 110,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF1F293D),
+                  color: AppColors.statusButtonCore,
                   border: Border.all(
                     color: statusColor.withValues(alpha: 0.8),
                     width: 4,
@@ -105,12 +105,12 @@ class ConnectionStatusPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          isConnected ? formatDuration(viewModel.duration) : '00:00:00',
+          isConnected ? Formatters.duration(viewModel.duration) : '00:00:00',
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w300,
             letterSpacing: 1.5,
-            color: Colors.white,
+            color: AppColors.textPrimary,
           ),
         ),
       ],

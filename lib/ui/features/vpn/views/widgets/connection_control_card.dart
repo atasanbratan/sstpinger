@@ -1,35 +1,30 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../../../../../core/utils/country_flag.dart';
+import '../../../../../core/utils/formatters.dart';
+import '../../../../core/app_colors.dart';
 import '../../view_models/vpn_view_model.dart';
+import 'speed_indicator.dart';
 
 class ConnectionControlCard extends StatelessWidget {
   final VpnViewModel viewModel;
-  final String Function(String) getFlagEmoji;
-  final Widget Function({
-    required String label,
-    required String speed,
-    required String total,
-    required IconData icon,
-    required Color color,
-  })
-  buildSpeedIndicator;
 
   const ConnectionControlCard({
     super.key,
     required this.viewModel,
-    required this.getFlagEmoji,
-    required this.buildSpeedIndicator,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isConnected =
-        viewModel.connectionStatus == SSTPConnectionStatusKeys.CONNECTED;
+        viewModel.connectionStatus == SSTPConnectionStatusKeys.connected;
+
+    final server = viewModel.selectedServer;
+    final custom = viewModel.useCustomConfig;
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: const Color(0xFF151D30),
+      color: AppColors.surface,
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(18.0),
@@ -40,16 +35,14 @@ class ConnectionControlCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: AppColors.surfaceDeep,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    viewModel.useCustomConfig
+                    custom
                         ? '🔧'
-                        : (viewModel.selectedServer != null
-                              ? getFlagEmoji(
-                                  viewModel.selectedServer!.countryShort,
-                                )
+                        : (server != null
+                              ? countryFlagEmoji(server.countryShort)
                               : '🌐'),
                     style: const TextStyle(fontSize: 24),
                   ),
@@ -60,30 +53,29 @@ class ConnectionControlCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        viewModel.useCustomConfig
+                        custom
                             ? 'Custom Node Configuration'
-                            : (viewModel.selectedServer != null
-                                  ? viewModel.selectedServer!.country
-                                        .toUpperCase()
+                            : (server != null
+                                  ? server.country.toUpperCase()
                                   : 'No Node Selected'),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        viewModel.useCustomConfig
+                        custom
                             ? '${viewModel.customHostController.text}:${viewModel.customPortController.text}'
-                            : (viewModel.selectedServer != null
-                                  ? viewModel.selectedServer!.hostname
+                            : (server != null
+                                  ? server.hostname
                                   : 'Select from server list below'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.white54,
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -95,18 +87,17 @@ class ConnectionControlCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: viewModel.useCustomConfig
-                        ? Colors.orange.withValues(alpha: 0.1)
-                        : Colors.cyan.withValues(alpha: 0.1),
+                    color: (custom ? AppColors.connecting : AppColors.accent)
+                        .withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    viewModel.useCustomConfig ? 'CUSTOM' : 'API NODES',
+                    custom ? 'CUSTOM' : 'API NODES',
                     style: TextStyle(
                       fontSize: 9,
-                      color: viewModel.useCustomConfig
-                          ? Colors.orangeAccent
-                          : const Color(0xFF00D2FF),
+                      color: custom
+                          ? AppColors.connecting
+                          : AppColors.accent,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -116,37 +107,33 @@ class ConnectionControlCard extends StatelessWidget {
             if (isConnected) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12.0),
-                child: Divider(color: Colors.white10),
+                child: Divider(color: AppColors.divider),
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  buildSpeedIndicator(
+                  SpeedIndicator(
                     label: 'DOWNLOAD SPEED',
-                    speed: viewModel.traffic != null
-                        ? _formatSpeed(viewModel.traffic!.downloadTraffic ?? 0)
-                        : '0.0 KB/s',
-                    total: viewModel.traffic != null
-                        ? _formatTraffic(
-                            viewModel.traffic!.totalDownloadTraffic ?? 0,
-                          )
-                        : '0.0 MB',
+                    speed: Formatters.speed(
+                      viewModel.traffic?.downloadTraffic ?? 0,
+                    ),
+                    total: Formatters.bytes(
+                      viewModel.traffic?.totalDownloadTraffic ?? 0,
+                    ),
                     icon: Icons.arrow_downward_rounded,
-                    color: const Color(0xFF00D2FF),
+                    color: AppColors.accent,
                   ),
-                  Container(height: 40, width: 1, color: Colors.white10),
-                  buildSpeedIndicator(
+                  Container(height: 40, width: 1, color: AppColors.divider),
+                  SpeedIndicator(
                     label: 'UPLOAD SPEED',
-                    speed: viewModel.traffic != null
-                        ? _formatSpeed(viewModel.traffic!.uploadTraffic ?? 0)
-                        : '0.0 KB/s',
-                    total: viewModel.traffic != null
-                        ? _formatTraffic(
-                            viewModel.traffic!.totalUploadTraffic ?? 0,
-                          )
-                        : '0.0 MB',
+                    speed: Formatters.speed(
+                      viewModel.traffic?.uploadTraffic ?? 0,
+                    ),
+                    total: Formatters.bytes(
+                      viewModel.traffic?.totalUploadTraffic ?? 0,
+                    ),
                     icon: Icons.arrow_upward_rounded,
-                    color: const Color(0xFF9D4EDD),
+                    color: AppColors.accentSecondary,
                   ),
                 ],
               ),
@@ -155,21 +142,5 @@ class ConnectionControlCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatSpeed(int bytesPerSecond) {
-    if (bytesPerSecond <= 0) return '0 B/s';
-    const suffixes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
-    var i = (log(bytesPerSecond) / log(1024)).floor();
-    i = i.clamp(0, suffixes.length - 1);
-    return '${(bytesPerSecond / pow(1024, i)).toStringAsFixed(1)} ${suffixes[i]}';
-  }
-
-  String _formatTraffic(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const suffixes = ['B', 'KB', 'MB', 'GB'];
-    var i = (log(bytes) / log(1024)).floor();
-    i = i.clamp(0, suffixes.length - 1);
-    return '${(bytes / pow(1024, i)).toStringAsFixed(1)} ${suffixes[i]}';
   }
 }

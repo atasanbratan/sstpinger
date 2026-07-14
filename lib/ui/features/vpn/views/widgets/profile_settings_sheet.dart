@@ -1,19 +1,202 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/app_colors.dart';
 import '../../view_models/vpn_view_model.dart';
 
 class ProfileSettingsSheet extends StatelessWidget {
   final VpnViewModel viewModel;
   final VoidCallback onEditUsername;
+  final VoidCallback onRenew;
+  final String renewLabel;
   final ValueChanged<bool> onUseCustomConfigChanged;
 
   const ProfileSettingsSheet({
     super.key,
     required this.viewModel,
     required this.onEditUsername,
+    required this.onRenew,
+    this.renewLabel = 'RENEW ACTIVATION CODE',
     required this.onUseCustomConfigChanged,
   });
+
+  static const List<String> _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Unknown';
+    final local = date.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    return '${_months[local.month - 1]} ${local.day}, ${local.year}  $h:$m';
+  }
+
+  Widget _buildSubscriptionCard() {
+    final expireTime = viewModel.expireTime;
+    final lastFetch = viewModel.lastFetchTime;
+    final bool expired = viewModel.isSubscriptionExpired;
+
+    final Color expiryColor = expired
+        ? AppColors.error
+        : AppColors.accent;
+
+    return Card(
+      color: AppColors.surfaceRaised,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(
+                  expired
+                      ? Icons.error_outline
+                      : Icons.workspace_premium_outlined,
+                  color: expiryColor,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        expired ? 'Expired on' : 'Expires on',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white38,
+                        ),
+                      ),
+                      Text(
+                        _formatDate(expireTime),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: expiryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.white10, height: 24),
+            Row(
+              children: [
+                const Icon(Icons.update, color: Colors.white54),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Server list last updated',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white38,
+                        ),
+                      ),
+                      Text(
+                        _formatDate(lastFetch),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPingSettingsCard(StateSetter setModalState) {
+    final seconds = viewModel.pingTimeoutSeconds.clamp(0.5, 5.0);
+    final batch = viewModel.pingBatchSize.clamp(5, 100);
+
+    return Card(
+      color: AppColors.surfaceRaised,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.timer_outlined, color: AppColors.accent),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Max ping time',
+                    style: TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                ),
+                Text(
+                  '${seconds.toStringAsFixed(1)}s',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: seconds.toDouble(),
+              min: 0.5,
+              max: 5.0,
+              divisions: 9,
+              activeColor: AppColors.accent,
+              label: '${seconds.toStringAsFixed(1)}s',
+              onChanged: (v) {
+                setModalState(() => viewModel.setPingTimeoutSeconds(v));
+              },
+              onChangeEnd: (_) => viewModel.persistPingSettings(),
+            ),
+            const Divider(color: Colors.white10, height: 12),
+            Row(
+              children: [
+                const Icon(Icons.bolt_outlined, color: AppColors.accentSecondary),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Max simultaneous pings',
+                    style: TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                ),
+                Text(
+                  '$batch',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accentSecondary,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: batch.toDouble(),
+              min: 5,
+              max: 100,
+              divisions: 19,
+              activeColor: AppColors.accentSecondary,
+              label: '$batch',
+              onChanged: (v) {
+                setModalState(() => viewModel.setPingBatchSize(v.round()));
+              },
+              onChangeEnd: (_) => viewModel.persistPingSettings(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +246,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Card(
-                  color: const Color(0xFF1E293B),
+                  color: AppColors.surfaceRaised,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -73,7 +256,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.person, color: Color(0xFF00D2FF)),
+                            const Icon(Icons.person, color: AppColors.accent),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -111,7 +294,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                           children: [
                             const Icon(
                               Icons.phone_android,
-                              color: Color(0xFF9D4EDD),
+                              color: AppColors.accentSecondary,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -165,6 +348,45 @@ class ProfileSettingsSheet extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
+                const Text(
+                  'SUBSCRIPTION',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white38,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildSubscriptionCard(),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onRenew,
+                    icon: const Icon(Icons.autorenew, size: 18),
+                    label: Text(renewLabel),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      side: const BorderSide(color: AppColors.accentBorder),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'PING SETTINGS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white38,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildPingSettingsCard(setModalState),
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -178,7 +400,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                     ),
                     Switch(
                       value: viewModel.useCustomConfig,
-                      activeThumbColor: const Color(0xFF00D2FF),
+                      activeThumbColor: AppColors.accent,
                       onChanged: (val) {
                         setModalState(() {
                           onUseCustomConfigChanged(val);
@@ -199,7 +421,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                         fontSize: 12,
                       ),
                       focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF00D2FF)),
+                        borderSide: BorderSide(color: AppColors.accent),
                       ),
                     ),
                   ),
@@ -221,7 +443,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                               fontSize: 12,
                             ),
                             focusedBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFF00D2FF)),
+                              borderSide: BorderSide(color: AppColors.accent),
                             ),
                           ),
                         ),
@@ -242,7 +464,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                               fontSize: 12,
                             ),
                             focusedBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFF00D2FF)),
+                              borderSide: BorderSide(color: AppColors.accent),
                             ),
                           ),
                         ),
@@ -261,7 +483,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                         fontSize: 12,
                       ),
                       focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF00D2FF)),
+                        borderSide: BorderSide(color: AppColors.accent),
                       ),
                     ),
                   ),

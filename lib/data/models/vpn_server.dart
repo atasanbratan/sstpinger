@@ -1,4 +1,6 @@
-class VpnServer {
+import 'package:equatable/equatable.dart';
+
+class VpnServer extends Equatable {
   final int id;
   final String hostname;
   final String ip;
@@ -10,9 +12,9 @@ class VpnServer {
   final String country;
   final String countryShort;
   final String locationName;
-  int? ping;
+  final int? ping;
 
-  VpnServer({
+  const VpnServer({
     required this.id,
     required this.hostname,
     required this.ip,
@@ -26,6 +28,27 @@ class VpnServer {
     required this.locationName,
     this.ping,
   });
+
+  /// Stable identity used for bookmarks and ping matching across refetches
+  /// (the backend `id` can change, but the endpoint stays put).
+  String get endpoint => '$ip:$port';
+
+  VpnServer copyWith({int? ping}) {
+    return VpnServer(
+      id: id,
+      hostname: hostname,
+      ip: ip,
+      port: port,
+      key: key,
+      sessions: sessions,
+      info: info,
+      info2: info2,
+      country: country,
+      countryShort: countryShort,
+      locationName: locationName,
+      ping: ping ?? this.ping,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -63,4 +86,20 @@ class VpnServer {
       ping: json['ping'] as int?,
     );
   }
+
+  @override
+  List<Object?> get props => [
+        id,
+        hostname,
+        ip,
+        port,
+        key,
+        sessions,
+        info,
+        info2,
+        country,
+        countryShort,
+        locationName,
+        ping,
+      ];
 }

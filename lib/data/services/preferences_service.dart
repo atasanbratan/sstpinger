@@ -9,6 +9,14 @@ import '../models/vpn_server.dart';
 class PreferencesService {
   static const String _keyUsername = 'username';
   static const String _keyDeviceId = 'device_id';
+  static const String _keyExpireTime = 'subscription_expire_time';
+  static const String _keyLastFetch = 'servers_last_fetch';
+  static const String _keyPingTimeoutMs = 'ping_timeout_ms';
+  static const String _keyPingBatchSize = 'ping_batch_size';
+  static const String _keyBookmarks = 'bookmarked_servers';
+
+  static const int defaultPingTimeoutMs = 1500;
+  static const int defaultPingBatchSize = 25;
 
   Future<String> getUsername() async {
     final prefs = await SharedPreferences.getInstance();
@@ -33,36 +41,88 @@ class PreferencesService {
 
   Future<void> saveServersWithPing(List<VpnServer> servers) async {
     final prefs = await SharedPreferences.getInstance();
-    
-    final encodedServers = servers.map((server) => {
-      'id': server.id,
-      'hostname': server.hostname,
-      'ip': server.ip,
-      'port': server.port,
-      'key': server.key,
-      'sessions': server.sessions,
-      'info': server.info,
-      'info2': server.info2,
-      'country': server.country,
-      'countryShort': server.countryShort,
-      'locationName': server.locationName,
-      'ping': server.ping,
-    }).toList();
-    
+
+    final encodedServers = servers.map((server) => server.toJson()).toList();
+
     final encodedString = jsonEncode(encodedServers);
     await prefs.setString('servers_with_ping', encodedString);
+  }
+
+  Future<void> saveSubscriptionInfo({
+    DateTime? expireTime,
+    required DateTime lastFetch,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (expireTime != null) {
+      await prefs.setString(_keyExpireTime, expireTime.toIso8601String());
+    }
+    await prefs.setString(_keyLastFetch, lastFetch.toIso8601String());
+  }
+
+  Future<DateTime?> getExpireTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyExpireTime);
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  Future<DateTime?> getLastFetchTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyLastFetch);
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  Future<int> getPingTimeoutMs() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyPingTimeoutMs) ?? defaultPingTimeoutMs;
+  }
+
+  Future<int> getPingBatchSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyPingBatchSize) ?? defaultPingBatchSize;
+  }
+
+  Future<void> savePingSettings({
+    required int timeoutMs,
+    required int batchSize,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyPingTimeoutMs, timeoutMs);
+    await prefs.setInt(_keyPingBatchSize, batchSize);
+  }
+
+  /// Bookmarks are stored as full server records (not just endpoints) so they
+  /// survive a server refetch even if the backend drops the node.
+  Future<List<VpnServer>> getBookmarkedServers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyBookmarks);
+    if (raw == null || raw.isEmpty) return [];
+
+    final decoded = jsonDecode(raw) as List<dynamic>;
+    return decoded
+        .map((item) => VpnServer.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> saveBookmarkedServers(List<VpnServer> servers) async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(servers.map((s) => s.toJson()).toList());
+    await prefs.setString(_keyBookmarks, encoded);
   }
 
   Future<List<VpnServer>> loadServersWithPing() async {
     final prefs = await SharedPreferences.getInstance();
     final encodedString = prefs.getString('servers_with_ping');
-    
+
     if (encodedString == null || encodedString.isEmpty) {
       return [];
     }
-    
+
     final List<dynamic> decodedList = jsonDecode(encodedString);
-    return decodedList.map((item) => VpnServer.fromJson(item as Map<String, dynamic>)).toList();
+    return decodedList
+        .map((item) => VpnServer.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> _generateOrFetchDeviceId(SharedPreferences prefs) async {

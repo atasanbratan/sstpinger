@@ -1,0 +1,17 @@
+# Release signing. Copy to `android/key.properties` and fill in.
+#
+# NEVER commit key.properties or the .jks itself — this repository is public.
+# Both are gitignored; keep it that way.
+#
+# Create a keystore once:
+#
+#   keytool -genkey -v -keystore ~/sstp-shield-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias sstp-shield
+#
+# Back that .jks up somewhere safe. If you lose it you can never ship an upgrade
+# to an already-installed app again — Android will refuse the new signature.
+
+storeFile=/absolute/path/to/sstp-shield-release.jks
+storePassword=<the keystore password>
+keyAlias=sstp-shield
+keyPassword=<the key password>

@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Release signing — this repo is public; a leaked keystore is unrecoverable.
+**/key.properties
+*.jks
+*.keystore
