@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:advertising_id/advertising_id.dart';
@@ -126,31 +127,41 @@ class PreferencesService {
   }
 
   Future<void> _generateOrFetchDeviceId(SharedPreferences prefs) async {
-    // Try to get Google Ads ID (Advertising ID)
-    try {
-      String? adId = await AdvertisingId.id(true);
-      if (adId != null &&
-          adId.isNotEmpty &&
-          adId != "00000000-0000-0000-0000-000000000000") {
-        await prefs.setString(_keyDeviceId, adId);
-        return;
+    // The advertising ID only exists on Android/iOS. On desktop the plugin is
+    // absent, so asking for it throws MissingPluginException — don't force a
+    // known failure and catch it, just skip straight to the generated UUID.
+    if (Platform.isAndroid || Platform.isIOS) {
+      try {
+        final String? adId = await AdvertisingId.id(true);
+        if (adId != null &&
+            adId.isNotEmpty &&
+            adId != "00000000-0000-0000-0000-000000000000") {
+          await prefs.setString(_keyDeviceId, adId);
+          return;
+        }
+        // Otherwise fall through: the user reset or opted out of their ad ID.
+      } catch (e) {
+        debugPrint('Failed to get Advertising ID, using a generated id: $e');
       }
-    } catch (e) {
-      debugPrint('Failed to get Advertising ID: $e');
     }
 
-    // Fallback to random UUID v4
-    final random = Random();
-    final bytes = List<int>.generate(16, (i) => random.nextInt(256));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Set version 4
-    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Set variant RFC4122
+    // Everywhere else — desktop, or mobile with no usable ad ID — mint a random
+    // UUID v4. It is persisted below and reused on every later launch, so it is
+    // just as stable an identity as the ad ID; it only differs in being
+    // per-install rather than per-device. Random.secure() so the id backing
+    // activation is not drawn from a predictably-seeded PRNG.
+    await prefs.setString(_keyDeviceId, _randomUuidV4());
+  }
 
-    final hexList = bytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .toList();
-    final uuid =
-        '${hexList.sublist(0, 4).join()}-${hexList.sublist(4, 6).join()}-${hexList.sublist(6, 8).join()}-${hexList.sublist(8, 10).join()}-${hexList.sublist(10, 16).join()}';
+  String _randomUuidV4() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant RFC 4122
 
-    await prefs.setString(_keyDeviceId, uuid);
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).toList();
+    return '${hex.sublist(0, 4).join()}-${hex.sublist(4, 6).join()}-'
+        '${hex.sublist(6, 8).join()}-${hex.sublist(8, 10).join()}-'
+        '${hex.sublist(10, 16).join()}';
   }
 }
