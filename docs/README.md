@@ -1,6 +1,6 @@
 # SSTP Shield — Documentation
 
-**SSTP Shield** (`sstpinger`) is a Flutter mobile VPN client for connecting to
+**SSTP Shield** (`sstp_shield`) is a Flutter VPN client (Android, iOS, Linux, Windows) for connecting to
 [SSTP](https://en.wikipedia.org/wiki/Secure_Socket_Tunneling_Protocol) VPN
 servers. It fetches a list of available VPN nodes from a remote registry,
 lets the user measure latency (ping) to each node, and establishes a system

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sstpinger/app/app.dart';
-import 'package:sstpinger/app/app_variant.dart';
+import 'package:sstp_shield/app/app.dart';
+import 'package:sstp_shield/app/app_variant.dart';
 
 /// Local variant: activation-code onboarding.
 /// Build: `flutter build apk --target lib/main.dart`

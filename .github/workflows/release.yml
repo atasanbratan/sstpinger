@@ -118,7 +118,7 @@ jobs:
           Do NOT run this with sudo.
           Grant CAP_NET_ADMIN once (needs gcc, libcap, patchelf), then launch the
           generated sstp-vpn script — not the binary:
-              ./tool/setup_privilege.sh ./sstpinger
+              ./tool/setup_privilege.sh ./sstp_shield
               ./sstp-vpn
           EOF
           tar czf sstp-shield-linux-x64.tar.gz "$STAGE"
@@ -146,7 +146,7 @@ jobs:
         run: |
           $out = "build/windows/x64/runner/Release"
           if (-not (Test-Path "$out/wintun.dll")) { throw "wintun.dll missing from $out" }
-          $exe = "$out/sstpinger.exe"
+          $exe = "$out/sstp_shield.exe"
           $txt = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($exe))
           if ($txt -notmatch "requireAdministrator") {
             throw "$exe is not marked requireAdministrator — check /MANIFESTUAC in windows/runner/CMakeLists.txt"
