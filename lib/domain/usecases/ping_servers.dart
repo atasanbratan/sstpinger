@@ -27,7 +27,11 @@ class PingServers {
 
     Future<void> probe(int j) async {
       final ping = await _pingService.ping(results[j], timeoutMs: timeoutMs);
-      if (ping != null) results[j] = results[j].copyWith(ping: ping);
+      // Apply the result whatever it is. A null (unreachable) must CLEAR any
+      // latency from an earlier sweep — otherwise re-pinging after the route
+      // changed would leave the old numbers on screen, which is not what was
+      // measured. Hence `withPing`, not `copyWith`.
+      results[j] = results[j].withPing(ping);
       done++;
       if (!controller.isClosed) {
         controller.add(

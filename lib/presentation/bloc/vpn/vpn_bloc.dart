@@ -301,17 +301,14 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     await _serverRepo.saveWithPing(state.servers);
   }
 
-  /// Copies ping values from [pinged] into [list] where endpoints match.
+  /// Copies the freshly measured latencies from [pinged] into [list], matching on
+  /// endpoint. A probed server that did not answer gets its latency cleared —
+  /// keeping a stale value would misreport what the sweep actually found.
   List<VpnServer> _mergePings(List<VpnServer> list, List<VpnServer> pinged) {
-    final byEndpoint = {
-      for (final s in pinged)
-        if (s.ping != null) s.endpoint: s.ping!,
-    };
+    final probed = {for (final s in pinged) s.endpoint: s.ping};
     return [
       for (final s in list)
-        byEndpoint.containsKey(s.endpoint)
-            ? s.copyWith(ping: byEndpoint[s.endpoint])
-            : s,
+        probed.containsKey(s.endpoint) ? s.withPing(probed[s.endpoint]) : s,
     ];
   }
 

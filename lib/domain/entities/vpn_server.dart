@@ -38,6 +38,27 @@ class VpnServer extends Equatable {
   /// (the backend `id` can change, but the endpoint stays put).
   String get endpoint => '$ip:$port';
 
+  /// A copy with [ping] set to exactly this value — **including null**, which
+  /// means "the latest probe could not reach it".
+  ///
+  /// [copyWith] cannot express that: `ping ?? this.ping` treats null as "leave
+  /// it alone", so a failed re-probe would silently keep a stale latency from an
+  /// earlier sweep. Any code applying a fresh ping result must use this.
+  VpnServer withPing(int? ping) => VpnServer(
+    id: id,
+    hostname: hostname,
+    ip: ip,
+    port: port,
+    key: key,
+    sessions: sessions,
+    info: info,
+    info2: info2,
+    country: country,
+    countryShort: countryShort,
+    locationName: locationName,
+    ping: ping,
+  );
+
   VpnServer copyWith({int? ping}) {
     return VpnServer(
       id: id,
