@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/app_variant.dart';
 import '../../domain/entities/tunnel_config.dart';
@@ -28,6 +29,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToTop = false;
 
+  // App version, shown beside the title once loaded (empty until then).
+  String _version = '';
+
   // Custom-config input lives in the widget layer (transient UI, not app state).
   final _customHostController = TextEditingController();
   final _customPortController = TextEditingController(text: '443');
@@ -38,6 +42,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) setState(() => _version = info.version);
   }
 
   @override
@@ -194,7 +204,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverAppBar(
-              backgroundColor: Colors.transparent,
+              backgroundColor: AppColors.background,
               elevation: 0,
               pinned: true,
               leading: IconButton(
@@ -213,18 +223,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                       fontSize: 17,
                     ),
                   ),
+                  if (_version.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        'v$_version',
+                        style: const TextStyle(
+                          color: AppColors.textFaint,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
-                  tooltip: 'Refresh server list',
-                  onPressed: vpn.isFetchingServers
-                      ? null
-                      : () =>
-                          context.read<VpnBloc>().add(const ServersFetchRequested()),
-                ),
-              ],
             ),
             SliverToBoxAdapter(
               child: Padding(
@@ -401,6 +415,37 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                       color: conn.isConnected
                           ? AppColors.textFaint
                           : AppColors.accent,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Fetch the latest server list from the backend.
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.inputBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.divider),
+            ),
+            child: IconButton(
+              iconSize: 20,
+              tooltip: 'Fetch latest servers',
+              onPressed: vpn.isFetchingServers
+                  ? null
+                  : () => context.read<VpnBloc>().add(
+                      const ServersFetchRequested(),
+                    ),
+              icon: vpn.isFetchingServers
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.accent,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.download_rounded,
+                      color: AppColors.accent,
                     ),
             ),
           ),
