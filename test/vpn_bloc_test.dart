@@ -2,7 +2,6 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sstp_shield/domain/entities/subscription.dart';
-import 'package:sstp_shield/domain/entities/vpn_server.dart';
 import 'package:sstp_shield/domain/failures/failures.dart';
 import 'package:sstp_shield/domain/usecases/fetch_servers.dart';
 import 'package:sstp_shield/domain/usecases/import_activation.dart';
