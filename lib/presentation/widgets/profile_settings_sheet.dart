@@ -8,6 +8,10 @@ import '../theme/app_colors.dart';
 class ProfileSettingsSheet extends StatelessWidget {
   final VoidCallback onEditUsername;
   final VoidCallback onRenew;
+
+  /// Renew by loading the activation-code file (the admin console's Download).
+  /// Null hides the option (e.g. the foreign variant, which renews via payment).
+  final VoidCallback? onRenewFromFile;
   final String renewLabel;
   final TextEditingController customHostController;
   final TextEditingController customPortController;
@@ -18,6 +22,7 @@ class ProfileSettingsSheet extends StatelessWidget {
     super.key,
     required this.onEditUsername,
     required this.onRenew,
+    this.onRenewFromFile,
     this.renewLabel = 'RENEW ACTIVATION CODE',
     required this.customHostController,
     required this.customPortController,
@@ -361,6 +366,25 @@ class ProfileSettingsSheet extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (onRenewFromFile != null) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: onRenewFromFile,
+                      icon: const Icon(Icons.folder_open_rounded, size: 18),
+                      label: const Text('RENEW FROM FILE'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.accent,
+                        side: const BorderSide(color: AppColors.accentBorder),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 const Text(
                   'PING SETTINGS',

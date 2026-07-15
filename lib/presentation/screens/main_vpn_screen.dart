@@ -1,3 +1,4 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -493,6 +494,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
               _renewActivationCode();
             }
           },
+          // Loading the code from a file is a local-variant hand-off; the foreign
+          // variant renews by paying, so it has no file option.
+          onRenewFromFile: isForeign
+              ? null
+              : () {
+                  Navigator.pop(sheetContext);
+                  _renewActivationCodeFromFile();
+                },
         );
       },
     );
@@ -510,6 +519,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
     // Success ("renewed!") is confirmed by the actionResult listener; a failure
     // surfaces through the message listener.
+    context.read<VpnBloc>().add(ActivationCodeSubmitted(text));
+  }
+
+  /// Renew by loading the activation-code `.txt` the admin console saves, instead
+  /// of pasting from the clipboard.
+  Future<void> _renewActivationCodeFromFile() async {
+    const group = XTypeGroup(label: 'Activation code', extensions: ['txt']);
+    final file = await openFile(acceptedTypeGroups: [group]);
+    if (file == null || !mounted) return; // cancelled
+
+    final text = (await file.readAsString()).trim();
+    if (!mounted) return;
+
+    if (text.isEmpty) {
+      _showSnackBar('That file is empty. Pick your activation code file.');
+      return;
+    }
+
     context.read<VpnBloc>().add(ActivationCodeSubmitted(text));
   }
 

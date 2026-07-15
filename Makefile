@@ -67,6 +67,32 @@ dev: ## Plain `flutter run` on Linux (fast; no tunnel privilege, so connect won'
 analyze: ## Static analysis (matches CI)
 	flutter analyze
 
+# ---- Releasing --------------------------------------------------------------
+# `make release VERSION=2.1.1` bumps the version, runs the CI-parity analyze,
+# commits everything, tags vX.Y.Z, and pushes — which triggers the GitHub Actions
+# release workflow that builds and publishes the APKs / Linux / Windows assets.
+# The build number (the +N in pubspec) is auto-incremented.
+.PHONY: release
+release: ## Cut a release: make release VERSION=2.1.1 (bump, analyze, commit, tag, push)
+	@test -n "$(VERSION)" || { echo "usage: make release VERSION=2.1.1" >&2; exit 1; }
+	@echo "$(VERSION)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$' \
+		|| { echo "error: VERSION must look like 2.1.1 (got '$(VERSION)')." >&2; exit 1; }
+	@git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null \
+		&& { echo "error: tag v$(VERSION) already exists." >&2; exit 1; } || true
+	@build=$$(grep -E '^version:' pubspec.yaml | sed -E 's/.*\+//'); \
+		next=$$((build + 1)); \
+		sed -i -E "s/^version: .*/version: $(VERSION)+$$next/" pubspec.yaml; \
+		echo "==> version bumped to $(VERSION)+$$next"
+	flutter analyze
+	git add -A
+	git commit -m "Release v$(VERSION)"
+	git tag "v$(VERSION)"
+	git push origin HEAD
+	git push origin "v$(VERSION)"
+	@echo "==> pushed v$(VERSION). CI will build and publish the release:"
+	@echo "    https://github.com/atasanbratan/sstp_shield/releases/tag/v$(VERSION)"
+	@echo "    watch:  gh run watch \$$(gh run list --branch v$(VERSION) --limit 1 --json databaseId --jq '.[0].databaseId')"
+
 .PHONY: clean
 clean: ## Remove build artifacts
 	flutter clean
