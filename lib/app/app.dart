@@ -29,7 +29,7 @@ class _SstpVpnAppState extends State<SstpVpnApp> {
   @override
   void initState() {
     super.initState();
-    _deps = AppDependencies.create();
+    _deps = AppDependencies.create(serverPool: widget.variant.serverPool);
   }
 
   @override

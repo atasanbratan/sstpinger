@@ -26,7 +26,13 @@ class VpnRemoteDataSource {
   static const String _url =
       'https://script.google.com/macros/s/AKfycbyqKggC-QqxUAoc-u_8uut3gbHoFMXUr5-N7gQlIp53Ga6juJ8g12jJFvEiDgp9-I2c/exec';
 
-  VpnRemoteDataSource({Dio? dio}) : _dio = dio ?? Dio() {
+  /// The backend server pool to fetch from (e.g. "ASTU" for the Turkmen build),
+  /// or null for the default full list. See [AppVariant.serverPool].
+  final String? _pool;
+
+  VpnRemoteDataSource({Dio? dio, String? pool})
+      : _dio = dio ?? Dio(),
+        _pool = pool {
     if (kDebugMode) {
       _dio.interceptors.add(
         PrettyDioLogger(
@@ -50,6 +56,7 @@ class VpnRemoteDataSource {
     final Map<String, dynamic> payload = {
       'deviceId': deviceId,
       'username': username,
+      if (_pool != null) 'pool': _pool,
     };
 
     try {

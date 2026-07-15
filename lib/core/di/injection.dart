@@ -40,11 +40,13 @@ class AppDependencies {
     required this.pingService,
   });
 
-  factory AppDependencies.create() {
+  /// [serverPool] is the backend pool this build fetches from (see
+  /// [AppVariant.serverPool]) — null for the default full list.
+  factory AppDependencies.create({String? serverPool}) {
     // Data sources (shared): one preferences store backs the server,
     // subscription and settings repositories.
     final prefs = PreferencesDataSource();
-    final remote = VpnRemoteDataSource();
+    final remote = VpnRemoteDataSource(pool: serverPool);
 
     return AppDependencies._(
       tunnel: TunnelControllerImpl.forPlatform(),
