@@ -21,4 +21,13 @@ enum AppVariant {
 
   bool get isLocal => this == AppVariant.local;
   bool get isForeign => this == AppVariant.foreign;
+
+  /// The backend server pool this audience fetches from, or null for the default
+  /// (the full `data` list). Reachability is per-ISP, so local (Turkmen) users
+  /// are served a curated pool of servers the operator found reachable from their
+  /// ISP; foreign users get everything.
+  String? get serverPool => switch (this) {
+    AppVariant.local => 'ASTU',
+    AppVariant.foreign => null,
+  };
 }

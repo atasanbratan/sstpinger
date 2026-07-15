@@ -44,56 +44,82 @@ Client-side display values that must mirror `Config.js` live in
 4. **Never pass helper functions through constructors** (e.g. a `getFlagEmoji`
    or `buildX` callback). Import the shared util instead. Callbacks are for
    *events* (`onTap`, `onChanged`), not for shared logic.
-5. **The View Model owns state and business logic; widgets are dumb.** Widgets
-   read from the VM and call VM methods. They must not talk to repositories,
-   services, sockets, or `shared_preferences` directly.
+5. **Blocs own state and business logic; widgets are dumb.** Widgets read from
+   bloc state (`BlocBuilder`/`context.watch`) and dispatch events
+   (`context.read<Bloc>().add(...)`). They must not talk to repositories,
+   data sources, sockets, or `shared_preferences` directly.
 6. **Delete dead code** rather than commenting it out. Git is the history.
 
-## Architecture (clean-ish, layered)
+## Architecture (Clean Architecture + Bloc)
+
+Dependencies point inward: `presentation` → `domain` ← `data`. The domain owns
+the contracts (entities + repository interfaces + use cases); `data` implements
+them; `presentation` depends only on the domain.
 
 ```
 lib/
-  app/            App root widget + wiring (MaterialApp, VM construction)
-  core/           Cross-cutting, framework-agnostic helpers
-    utils/          Pure functions: formatters, country flags, ...
-  data/           The data layer — no Flutter/UI imports
-    models/         Immutable value types (Equatable). e.g. VpnServer
-    services/       I/O: API client (Dio), preferences, device id
-    repositories/   Orchestrate services; the ONLY thing the VM talks to
-  ui/
-    core/           Design system: theme, AppColors
-    features/
-      vpn/
-        view_models/  ChangeNotifier VMs — state + business logic
-        views/        Screens
-          widgets/    Reusable presentational widgets for the feature
+  domain/           Pure Dart. No Flutter, dio, or shared_preferences.
+    entities/         Value types (Equatable): VpnServer, Subscription,
+                      TunnelStatus, TunnelTraffic, TunnelConfig, TunnelUpdate...
+    repositories/     INTERFACES: VpnServerRepository, SubscriptionRepository,
+                      SettingsRepository, TunnelController, PingService
+    usecases/         Single-responsibility operations (FetchServers, PingServers,
+                      ConnectTunnel, ImportActivation, ...)
+    failures/         ApiException, SubscriptionExpiredException (pure)
+  data/               Implements the domain interfaces. No UI imports.
+    dto/              JSON <-> entity mapping (VpnServerDto)
+    datasources/      I/O: VpnRemoteDataSource (dio), PreferencesDataSource,
+                      TcpPingService, {Mobile,Desktop}TunnelDataSource
+    repositories/     *Impl classes; TunnelControllerImpl adapts callbacks->stream
+  presentation/
+    bloc/
+      connection/     ConnectionBloc (+ event/state) — tunnel lifecycle only
+      vpn/            VpnBloc (+ event/state) — servers, ping, search, bookmarks,
+                      onboarding, subscription, username
+    screens/          main_vpn_screen, activation_screen, subscription_screen
+    widgets/          Reusable presentational widgets
+    theme/            AppColors, theme
+  core/
+    di/               injection.dart — the composition root (AppDependencies)
+    config/, utils/   Cross-cutting helpers
+  app/                app.dart (providers + MaterialApp), app_variant.dart
 ```
 
 ### Dependency direction (must not be violated)
 
-`ui` → `data/repositories` → `data/services` → `data/models`
-UI never imports `services` directly; it goes through the repository via the VM.
-`data/**` must never import from `ui/**` or `package:flutter/material.dart`
-(models/services are UI-agnostic).
+`presentation` → `domain` ← `data`. Blocs depend on **use cases** for real
+operations and on repository **interfaces** for trivial reads; never on `data`
+implementations, dio, or `shared_preferences`. `domain/**` imports nothing from
+`data/**`, `presentation/**`, or `package:flutter/material.dart`. `data/**` never
+imports `presentation/**`.
 
-## State management
+## State management (Bloc)
 
-- Single `VpnViewModel extends ChangeNotifier`, constructed in
-  [lib/app/app.dart](lib/app/app.dart) and passed to the screen.
-- Widgets rebuild via `ListenableBuilder`.
-- The VM exposes **read-only getters** for state and **methods** for actions.
-  Never expose mutable fields.
-- After mutating state, call `notifyListeners()` exactly once per logical change.
-
-> If the widget tree grows, migrate to `provider`/`Provider.of` rather than
-> threading the VM through every constructor. Do not hand-roll InheritedWidgets.
+- Two blocs, provided above `MaterialApp` in [lib/app/app.dart](lib/app/app.dart)
+  via `MultiBlocProvider` (so pushed routes and modal sheets can read them):
+  - **ConnectionBloc** — tunnel lifecycle (`VpnConnectionState`). Its own state
+    class is named `VpnConnectionState` to avoid clashing with Flutter's
+    `ConnectionState`.
+  - **VpnBloc** — the cohesive feature: servers, ping, search, bookmarks,
+    onboarding, subscription, username.
+- The two are coordinated at the screen: a `BlocListener` refreshes servers when
+  ConnectionBloc reports `connected`; the ping guard reads ConnectionBloc status.
+- Events are `sealed` classes; state is an immutable Equatable with `copyWith`.
+  One-shot signals (`VpnMessage`, `VpnActionResult`, `ConnectionError`) carry an
+  incrementing `id` so identical values still register as a change; screens react
+  via `BlocListener` with a `listenWhen` id comparison.
+- The composition root wires the object graph once in
+  [lib/core/di/injection.dart](lib/core/di/injection.dart); `AppDependencies`
+  builds the blocs and disposes the `TunnelController`.
+- Transient UI input that isn't app state (the custom-config text fields) stays
+  in the screen's `State`, not in a bloc.
 
 ## Design system
 
 - **Colors:** [lib/ui/core/app_colors.dart](lib/ui/core/app_colors.dart). Add a
   named constant there and reference it; never inline a hex color in a widget.
-- **Theme:** [lib/ui/core/theme.dart](lib/ui/core/theme.dart) wires `AppColors`
-  into `ThemeData`. Prefer `Theme.of(context)` text styles where practical.
+- **Theme:** [lib/presentation/theme/theme.dart](lib/presentation/theme/theme.dart)
+  wires `AppColors` into `ThemeData`. Prefer `Theme.of(context)` text styles.
 - **Font:** `Outfit` (see `pubspec.yaml` assets / theme `textTheme`).
 
 ## Utilities
@@ -105,38 +131,41 @@ Pure, testable functions live in [lib/core/utils/](lib/core/utils/):
 
 Add new shared logic here instead of duplicating it in a widget.
 
-## Models
+## Entities, DTOs, and models
 
-- Value types are **immutable** and extend `Equatable` (see
-  [lib/data/models/vpn_server.dart](lib/data/models/vpn_server.dart)).
-- Provide `fromJson`/`toJson` and a `copyWith` for controlled mutation.
-- List these fields in `props` so equality/`==` works.
+- Domain **entities** are immutable, extend `Equatable`, and know nothing about
+  JSON (see [lib/domain/entities/vpn_server.dart](lib/domain/entities/vpn_server.dart)).
+- JSON mapping lives in **DTOs** in the data layer
+  ([lib/data/dto/vpn_server_dto.dart](lib/data/dto/vpn_server_dto.dart)), not on
+  the entity.
+- Provide `copyWith` for controlled mutation and list all fields in `props`.
 
 ## Conventions
 
 - Prefer `const` constructors wherever possible.
 - Name event callbacks `onX`; name booleans `isX`/`hasX`.
 - Keep `import` groups ordered: dart, package, then relative.
-- User-facing error strings go through `onErrorMessage` on the VM, surfaced by
-  the screen as a SnackBar — widgets deep in the tree should not build SnackBars.
+- User-facing messages ride on one-shot state fields (`VpnMessage`,
+  `ConnectionError`) and are turned into SnackBars by a `BlocListener` in
+  `main_vpn_screen.dart` — widgets deep in the tree do not build SnackBars.
 
 ## Verifying changes
 
 - `flutter analyze` must be clean before considering a change done.
-- `flutter test` for logic (utils, VM, repository) — prefer testing pure
-  functions and VM behavior over widgets.
-- There is currently **no test suite**; adding one for `core/utils` and the VM
-  is the highest-value next step.
+- `flutter test` — the bloc suite (`test/vpn_bloc_test.dart`,
+  `test/connection_bloc_test.dart`) exercises the domain + bloc logic with
+  `bloc_test` + `mocktail`, mocking the repository interfaces. Add to it when you
+  add behavior; prefer testing blocs/use cases over widgets.
+- For a real end-to-end check on Linux desktop, build, run
+  `~/Projects/sstp_vpn_plugin/tool/setup_privilege.sh <bundle>/sstp_shield`, then
+  launch the generated `sstp-vpn` script and confirm the egress IP changes.
 
 ## Cleanup backlog (in priority order)
 
 1. Finish migrating remaining inline colors to `AppColors`
    (`profile_settings_sheet.dart`, `activation_screen.dart`).
 2. Split the large widgets into smaller files:
-   `profile_settings_sheet.dart` (~500 lines) and `main_vpn_screen.dart`
+   `profile_settings_sheet.dart` and `server_list_view.dart`
    (dialogs/sheets belong in their own files).
-3. Extract the connect/config-building logic out of
-   `VpnViewModel.toggleVpnConnection` into a small `SstpConnectionService`.
-4. Introduce `provider` for DI instead of constructor threading.
-5. Add unit tests for `core/utils` and `VpnViewModel`.
+3. Broaden the test suite — add widget tests and cover the tunnel data sources.
 </content>
