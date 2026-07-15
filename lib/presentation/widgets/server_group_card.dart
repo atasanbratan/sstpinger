@@ -12,6 +12,10 @@ class ServerGroupCard extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggle;
 
+  /// How many servers in this group are reachable; rendered in green after the
+  /// subtitle. Zero hides the reachable clause.
+  final int reachable;
+
   /// Header actions (e.g. ping this group), shown to the right of the title.
   final List<Widget> actions;
 
@@ -25,6 +29,7 @@ class ServerGroupCard extends StatelessWidget {
     required this.subtitle,
     required this.isExpanded,
     required this.onToggle,
+    this.reachable = 0,
     this.actions = const [],
     required this.children,
   });
@@ -74,14 +79,26 @@ class ServerGroupCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              subtitle,
+                            Text.rich(
+                              TextSpan(
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textFaint,
+                                ),
+                                children: [
+                                  TextSpan(text: subtitle),
+                                  if (reachable > 0)
+                                    TextSpan(
+                                      text: ' · $reachable reachable',
+                                      style: const TextStyle(
+                                        color: AppColors.pingGood,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                ],
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textFaint,
-                              ),
                             ),
                           ],
                         ),
