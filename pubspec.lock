@@ -650,7 +650,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: aed259fc4158d4cf870391aa547df75ce9d1d3f7
+      resolved-ref: "34944543c76e928b826a45a4956a755907ed5857"
       url: "https://github.com/atasanbratan/sstp_client.git"
     source: git
     version: "0.1.0"
