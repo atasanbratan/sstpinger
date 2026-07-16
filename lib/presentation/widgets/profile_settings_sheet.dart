@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/logging/file_logger.dart';
 import '../../domain/entities/tunnel_protocol.dart';
 import '../bloc/vpn/vpn_bloc.dart';
 import '../theme/app_colors.dart';
@@ -109,6 +110,43 @@ class ProfileSettingsSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Shows where the diagnostic log is written, with a copy button — the file to
+  /// send when a connection fails (a desktop GUI has no console to read).
+  Widget _buildLogPathRow(BuildContext context) {
+    final path = FileLogger.instance.path;
+    if (path == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.description_outlined,
+              size: 14, color: AppColors.textFaint),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Log: $path',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: AppColors.textFaint),
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            iconSize: 14,
+            tooltip: 'Copy log path',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: path));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Log path copied')),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded, color: AppColors.textMuted),
+          ),
+        ],
       ),
     );
   }
@@ -573,6 +611,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _buildProtocolCard(context, vpn),
+                _buildLogPathRow(context),
                 const SizedBox(height: 20),
                 const Text(
                   'PING SETTINGS',

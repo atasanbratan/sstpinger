@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:sstp_vpn_plugin/sstp_vpn_plugin.dart';
 
+import '../../core/logging/file_logger.dart';
 import '../../domain/entities/tunnel_config.dart';
 import '../../domain/entities/tunnel_protocol.dart';
 import '../../domain/entities/tunnel_status.dart';
@@ -27,6 +28,7 @@ class DesktopTunnelDataSource implements TunnelDataSource {
   bool _softEtherActive = false;
 
   StreamSubscription<VpnStatus>? _sstpSub;
+  StreamSubscription<String>? _sstpLogSub;
   StreamSubscription<SoftEtherStatus>? _softetherSub;
   Timer? _ticker;
   DateTime? _connectedAt;
@@ -51,8 +53,14 @@ class DesktopTunnelDataSource implements TunnelDataSource {
     _onDisconnected = onDisconnected;
     _onError = onError;
 
+    // The plugin's own handshake/tunnel log — the single most useful diagnostic
+    // when a desktop connect fails, and invisible without a console.
+    _sstpLogSub?.cancel();
+    _sstpLogSub = _sstp.logs.listen((line) => logLine('[sstp] $line'));
+
     _sstpSub?.cancel();
     _sstpSub = _sstp.status.listen((status) {
+      logLine('[sstp] status -> ${status.name}');
       switch (status) {
         case VpnStatus.connecting:
           _onConnecting?.call();
@@ -77,12 +85,14 @@ class DesktopTunnelDataSource implements TunnelDataSource {
 
   @override
   Future<void> connect(TunnelConfig config) async {
+    logLine('connect: protocol=${config.protocol.name} '
+        'host=${config.host}:${config.port} user=${config.username}');
     if (config.protocol == TunnelProtocol.softEther) {
       return _connectSoftEther(config);
     }
     _softEtherActive = false;
     try {
-      await _sstp.connect(
+      final ip = await _sstp.connect(
         host: config.host,
         port: config.port,
         username: config.username,
@@ -90,10 +100,15 @@ class DesktopTunnelDataSource implements TunnelDataSource {
         verifyCert: false, // VPN Gate servers are self-signed.
         routeMode: RouteMode.full,
       );
+      logLine('[sstp] connected, tunnel ip=$ip');
     } on SstpVpnException catch (e) {
+      logLine('[sstp] connect threw (${e.status.name}): ${e.message}');
       // A cancel mid-handshake completes connect() with an error; not worth
       // surfacing — the status stream already reported `disconnected`.
       if (e.status == VpnStatus.disconnected) return;
+      rethrow;
+    } catch (e, s) {
+      logLine('[sstp] connect error: $e\n$s');
       rethrow;
     }
   }
@@ -101,6 +116,7 @@ class DesktopTunnelDataSource implements TunnelDataSource {
   Future<void> _connectSoftEther(TunnelConfig config) async {
     _softEtherActive = true;
     final binDir = _softetherBinDir;
+    logLine('[softether] binDir=$binDir exists=${Directory(binDir).existsSync()}');
     final client = _softether ??= SoftEtherConnection.forPlatform(
       binDir: binDir,
       // Linux only; Windows drives the client directly (already elevated).
@@ -115,7 +131,11 @@ class DesktopTunnelDataSource implements TunnelDataSource {
         password: config.password,
       );
     } on SoftEtherException catch (e) {
+      logLine('[softether] connect threw (${e.status.name}): ${e.message}');
       if (e.status == SoftEtherStatus.disconnected) return;
+      rethrow;
+    } catch (e, s) {
+      logLine('[softether] connect error: $e\n$s');
       rethrow;
     }
   }
@@ -123,6 +143,7 @@ class DesktopTunnelDataSource implements TunnelDataSource {
   void _bindSoftEther(SoftEtherConnection client) {
     _softetherSub?.cancel();
     _softetherSub = client.status.listen((status) {
+      logLine('[softether] status -> ${status.name}');
       switch (status) {
         case SoftEtherStatus.connecting:
           _onConnecting?.call();
@@ -200,6 +221,7 @@ class DesktopTunnelDataSource implements TunnelDataSource {
   void dispose() {
     _stopTicker();
     _sstpSub?.cancel();
+    _sstpLogSub?.cancel();
     _softetherSub?.cancel();
     _sstp.dispose();
     _softether?.dispose();
