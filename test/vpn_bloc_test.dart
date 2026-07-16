@@ -38,11 +38,14 @@ void main() {
     when(() => settings.getReconnectRetryCount()).thenAnswer((_) async => 3);
     when(() => settings.getReconnectRetryIntervalSeconds())
         .thenAnswer((_) async => 5);
+    when(() => settings.getServersFlatView()).thenAnswer((_) async => false);
     when(() => serverRepo.loadBookmarks()).thenAnswer((_) async => []);
+    when(() => serverRepo.loadRecents()).thenAnswer((_) async => []);
     when(() => serverRepo.loadCached()).thenAnswer((_) async => []);
     when(() => serverRepo.fetchServers()).thenAnswer((_) async => []);
     when(() => serverRepo.clearServers()).thenAnswer((_) async {});
     when(() => serverRepo.saveBookmarks(any())).thenAnswer((_) async {});
+    when(() => serverRepo.saveRecents(any())).thenAnswer((_) async {});
     when(() => serverRepo.saveWithPing(any())).thenAnswer((_) async {});
     when(() => serverRepo.cachedServers).thenReturn([]);
   });
@@ -152,6 +155,38 @@ void main() {
         expect(bloc.state.bookmarkedServers, [a]);
         verify(() => serverRepo.saveBookmarks([a])).called(1);
       },
+    );
+  });
+
+  group('recents', () {
+    final a = server(id: 1, ip: '1.1.1.1');
+    final b = server(id: 2, ip: '2.2.2.2');
+
+    blocTest<VpnBloc, VpnState>(
+      'records connected servers newest-first, de-duplicated, and persists',
+      build: build,
+      act: (bloc) => bloc
+        ..add(ServerConnected(a))
+        ..add(ServerConnected(b))
+        ..add(ServerConnected(a)), // reconnecting to a moves it back to front
+      verify: (bloc) {
+        expect(
+          bloc.state.recentServers.map((s) => s.endpoint),
+          [a.endpoint, b.endpoint], // a deduped and promoted to front
+        );
+        verify(() => serverRepo.saveRecents(any())).called(3);
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'caps the recents list at 20',
+      build: build,
+      act: (bloc) {
+        for (var i = 0; i < 25; i++) {
+          bloc.add(ServerConnected(server(id: i, ip: '10.0.0.$i')));
+        }
+      },
+      verify: (bloc) => expect(bloc.state.recentServers.length, 20),
     );
   });
 

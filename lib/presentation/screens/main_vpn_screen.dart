@@ -144,13 +144,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           listenWhen: (p, c) => c.error != null && c.error!.id != p.error?.id,
           listener: (context, state) => _showSnackBar(state.error!.message),
         ),
-        // Refresh the server list once, the first time we connect.
+        // On reaching connected: refresh the server list (once per session) and
+        // record the server in Recents (skip custom-config connects — no node).
         BlocListener<ConnectionBloc, VpnConnectionState>(
           listenWhen: (p, c) =>
               p.status != TunnelStatus.connected &&
               c.status == TunnelStatus.connected,
-          listener: (context, _) =>
-              context.read<VpnBloc>().add(const ServersRefreshRequested()),
+          listener: (context, _) {
+            final bloc = context.read<VpnBloc>();
+            bloc.add(const ServersRefreshRequested());
+            final vpn = bloc.state;
+            if (!vpn.useCustomConfig && vpn.selectedServer != null) {
+              bloc.add(ServerConnected(vpn.selectedServer!));
+            }
+          },
         ),
         // The renew-from-profile flow confirms success here (the gate screens
         // handle their own success by transitioning).
@@ -186,8 +193,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     );
   }
 
+  /// Wide enough for a Happ-style two-pane desktop layout (server list on the
+  /// left, connection hero on the right). Below this, the single-column mobile
+  /// layout is used.
+  static const double _wideBreakpoint = 820;
+
   Widget _buildConnectedScaffold(BuildContext context, VpnState vpn) {
     return Scaffold(
+      appBar: _buildAppBar(context),
+      // The scroll-to-top FAB only makes sense for the single scroll column.
       floatingActionButton: _showScrollToTop
           ? FloatingActionButton(
               mini: true,
@@ -200,106 +214,151 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           : null,
       body: SafeArea(
         bottom: false,
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverAppBar(
-              backgroundColor: AppColors.background,
-              elevation: 0,
-              pinned: true,
-              leading: IconButton(
-                icon: const Icon(Icons.settings_outlined, color: Colors.white70),
-                tooltip: 'Settings / Profile',
-                onPressed: _showProfileAndSettingsModal,
-              ),
-              title: Row(
-                children: [
-                  Image.asset('assets/logo/logo.png', width: 24, height: 24),
-                  const SizedBox(width: 8),
-                  Text(
-                    'SSTP SHIELD',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      letterSpacing: 2,
-                      fontSize: 17,
-                    ),
-                  ),
-                  if (_version.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text(
-                        'v$_version',
-                        style: const TextStyle(
-                          color: AppColors.textFaint,
-                          fontSize: 11,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+        child: LayoutBuilder(
+          builder: (context, constraints) => constraints.maxWidth >= _wideBreakpoint
+              ? _buildWideBody(context, vpn)
+              : _buildNarrowBody(context, vpn),
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: AppColors.background,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+        tooltip: 'Settings / Profile',
+        onPressed: _showProfileAndSettingsModal,
+      ),
+      title: Row(
+        children: [
+          Image.asset('assets/logo/logo.png', width: 24, height: 24),
+          const SizedBox(width: 8),
+          Text(
+            'SSTP SHIELD',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              letterSpacing: 2,
+              fontSize: 17,
             ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 8),
-                    // Hero: the power button and the node it will use.
-                    BlocBuilder<ConnectionBloc, VpnConnectionState>(
-                      builder: (context, conn) => Column(
-                        children: [
-                          PowerButton(
-                            status: conn.status,
-                            duration: conn.duration,
-                            onToggle: () =>
-                                _toggleConnection(vpn, conn.isConnected),
-                          ),
-                          const SizedBox(height: 18),
-                          ConnectionControlCard(
-                            isConnected: conn.isConnected,
-                            server: vpn.selectedServer,
-                            useCustomConfig: vpn.useCustomConfig,
-                            customHost: _customHostController.text,
-                            customPort: _customPortController.text,
-                            traffic: conn.traffic,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    _buildServersHeader(vpn),
-                    const SizedBox(height: 10),
-                    _buildSearchRow(vpn),
-                    if (vpn.isPinging) ...[
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: vpn.pingTotal == 0
-                              ? null
-                              : vpn.pingProgress / vpn.pingTotal,
-                          minHeight: 3,
-                          backgroundColor: AppColors.surface,
-                          valueColor: const AlwaysStoppedAnimation(
-                            AppColors.accent,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    const ServerListView(),
-                    const SizedBox(height: 40),
-                  ],
+          ),
+          if (_version.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                'v$_version',
+                style: const TextStyle(
+                  color: AppColors.textFaint,
+                  fontSize: 11,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
           ],
-        ),
+        ],
       ),
+    );
+  }
+
+  /// Single-column (mobile): hero on top, server list below, all one scroll.
+  Widget _buildNarrowBody(BuildContext context, VpnState vpn) {
+    return SingleChildScrollView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 18.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 8),
+          _buildHero(context, vpn),
+          const SizedBox(height: 28),
+          _buildServersSection(context, vpn),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  /// Two-pane (desktop): scrollable server list on the left, connection hero
+  /// centred on the right — the Happ desktop arrangement.
+  Widget _buildWideBody(BuildContext context, VpnState vpn) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Left pane: the server list, taking half the window width.
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(18, 8, 12, 24),
+            child: _buildServersSection(context, vpn),
+          ),
+        ),
+        const VerticalDivider(width: 1, color: AppColors.divider),
+        Expanded(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: _buildHero(context, vpn),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The power button and the node it will use.
+  Widget _buildHero(BuildContext context, VpnState vpn) {
+    return BlocBuilder<ConnectionBloc, VpnConnectionState>(
+      builder: (context, conn) => Column(
+        children: [
+          PowerButton(
+            status: conn.status,
+            duration: conn.duration,
+            onToggle: () => _toggleConnection(vpn, conn.isConnected),
+          ),
+          const SizedBox(height: 18),
+          ConnectionControlCard(
+            isConnected: conn.isConnected,
+            server: vpn.selectedServer,
+            useCustomConfig: vpn.useCustomConfig,
+            customHost: _customHostController.text,
+            customPort: _customPortController.text,
+            traffic: conn.traffic,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The server picker: header, search row, ping progress, and the tabbed list.
+  Widget _buildServersSection(BuildContext context, VpnState vpn) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildServersHeader(vpn),
+        const SizedBox(height: 10),
+        _buildSearchRow(vpn),
+        if (vpn.isPinging) ...[
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: vpn.pingTotal == 0 ? null : vpn.pingProgress / vpn.pingTotal,
+              minHeight: 3,
+              backgroundColor: AppColors.surface,
+              valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+            ),
+          ),
+        ],
+        const SizedBox(height: 14),
+        const ServerListView(),
+      ],
     );
   }
 
@@ -316,17 +375,42 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             color: AppColors.textPrimary,
           ),
         ),
-        Text(
-          vpn.isPinging
-              ? 'Pinging ${vpn.pingProgress}/${vpn.pingTotal} · ${vpn.pingPercent}%'
-              : '${vpn.filteredServers.length} available',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: vpn.isPinging ? FontWeight.bold : FontWeight.normal,
-            color: vpn.isPinging ? AppColors.accent : AppColors.textFaint,
-          ),
-        ),
+        _buildServerCount(vpn),
       ],
+    );
+  }
+
+  /// Right-aligned count: "N available", plus a green "· M reachable" clause once
+  /// servers have been pinged. Shows ping progress while a ping is running.
+  Widget _buildServerCount(VpnState vpn) {
+    if (vpn.isPinging) {
+      return Text(
+        'Pinging ${vpn.pingProgress}/${vpn.pingTotal} · ${vpn.pingPercent}%',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: AppColors.accent,
+        ),
+      );
+    }
+
+    final servers = vpn.filteredServers;
+    final reachable = servers.where((s) => s.ping != null).length;
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(fontSize: 12, color: AppColors.textFaint),
+        children: [
+          TextSpan(text: '${servers.length} available'),
+          if (reachable > 0)
+            TextSpan(
+              text: ' · $reachable reachable',
+              style: const TextStyle(
+                color: AppColors.pingGood,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
     );
   }
 

@@ -17,4 +17,9 @@ abstract class SettingsRepository {
     required int retryCount,
     required int retryIntervalSeconds,
   });
+
+  /// Servers-tab layout: true = flat list, false = grouped by country.
+  Future<bool> getServersFlatView();
+
+  Future<void> saveServersFlatView(bool flat);
 }

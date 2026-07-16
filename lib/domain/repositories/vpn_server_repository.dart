@@ -29,4 +29,8 @@ abstract class VpnServerRepository {
   Future<List<VpnServer>> loadBookmarks();
 
   Future<void> saveBookmarks(List<VpnServer> servers);
+
+  Future<List<VpnServer>> loadRecents();
+
+  Future<void> saveRecents(List<VpnServer> servers);
 }

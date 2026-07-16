@@ -46,6 +46,16 @@ class BookmarkToggled extends VpnEvent {
   List<Object?> get props => [server];
 }
 
+/// Fired when the tunnel reaches "connected" for [server]; records it in the
+/// recently-connected list (newest first, de-duplicated, capped).
+class ServerConnected extends VpnEvent {
+  final VpnServer server;
+  const ServerConnected(this.server);
+
+  @override
+  List<Object?> get props => [server];
+}
+
 class UseCustomConfigChanged extends VpnEvent {
   final bool useCustomConfig;
   const UseCustomConfigChanged(this.useCustomConfig);
@@ -110,6 +120,15 @@ class ReconnectRetryIntervalChanged extends VpnEvent {
 
 class ReconnectSettingsPersistRequested extends VpnEvent {
   const ReconnectSettingsPersistRequested();
+}
+
+/// Toggles the Servers-tab layout (flat vs grouped) and persists the choice.
+class ServersViewModeChanged extends VpnEvent {
+  final bool flat;
+  const ServersViewModeChanged(this.flat);
+
+  @override
+  List<Object?> get props => [flat];
 }
 
 class UsernameChanged extends VpnEvent {

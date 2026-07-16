@@ -65,6 +65,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<SearchQueryChanged>(_onSearch);
     on<ServerSelected>(_onSelect);
     on<BookmarkToggled>(_onBookmarkToggled);
+    on<ServerConnected>(_onServerConnected);
     on<UseCustomConfigChanged>(_onUseCustomConfig);
     on<PingRequested>(_onPing);
     on<BookmarkPingRequested>(_onBookmarkPing);
@@ -74,6 +75,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<ReconnectRetryCountChanged>(_onReconnectCount);
     on<ReconnectRetryIntervalChanged>(_onReconnectInterval);
     on<ReconnectSettingsPersistRequested>(_onPersistReconnect);
+    on<ServersViewModeChanged>(_onServersViewMode);
     on<UsernameChanged>(_onUsername);
     on<ActivationCodeSubmitted>(_onActivation);
     on<FreeTrialRequested>(_onTrial);
@@ -88,7 +90,9 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     final batch = await _settings.getPingBatchSize();
     final retryCount = await _settings.getReconnectRetryCount();
     final retryInterval = await _settings.getReconnectRetryIntervalSeconds();
+    final flatView = await _settings.getServersFlatView();
     final bookmarks = await _serverRepo.loadBookmarks();
+    final recents = await _serverRepo.loadRecents();
     final cached = await _loadCached();
 
     emit(
@@ -101,7 +105,9 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         pingBatchSize: batch,
         reconnectRetryCount: retryCount,
         reconnectRetryIntervalSeconds: retryInterval,
+        serversFlatView: flatView,
         bookmarkedServers: bookmarks,
+        recentServers: recents,
         servers: cached.isNotEmpty && state.servers.isEmpty
             ? cached
             : state.servers,
@@ -220,6 +226,22 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     }
     emit(state.copyWith(bookmarkedServers: list));
     await _serverRepo.saveBookmarks(list);
+  }
+
+  /// How many recently-connected servers to keep.
+  static const int _maxRecents = 20;
+
+  Future<void> _onServerConnected(
+    ServerConnected event,
+    Emitter<VpnState> emit,
+  ) async {
+    // Newest first, de-duplicated by endpoint, capped.
+    final list = List<VpnServer>.from(state.recentServers)
+      ..removeWhere((s) => s.endpoint == event.server.endpoint)
+      ..insert(0, event.server);
+    if (list.length > _maxRecents) list.removeRange(_maxRecents, list.length);
+    emit(state.copyWith(recentServers: list));
+    await _serverRepo.saveRecents(list);
   }
 
   void _onUseCustomConfig(UseCustomConfigChanged event, Emitter<VpnState> emit) =>
@@ -352,6 +374,14 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     retryCount: state.reconnectRetryCount,
     retryIntervalSeconds: state.reconnectRetryIntervalSeconds,
   );
+
+  Future<void> _onServersViewMode(
+    ServersViewModeChanged event,
+    Emitter<VpnState> emit,
+  ) async {
+    emit(state.copyWith(serversFlatView: event.flat));
+    await _settings.saveServersFlatView(event.flat);
+  }
 
   Future<void> _onUsername(UsernameChanged event, Emitter<VpnState> emit) async {
     final trimmed = event.username.trim();

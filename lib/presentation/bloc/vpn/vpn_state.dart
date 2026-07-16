@@ -47,6 +47,9 @@ class VpnState extends Equatable {
   final bool useCustomConfig;
   final List<VpnServer> bookmarkedServers;
 
+  /// Recently-connected servers, newest first (capped, de-duplicated).
+  final List<VpnServer> recentServers;
+
   final bool isPinging;
   final int pingProgress;
   final int pingTotal;
@@ -57,6 +60,9 @@ class VpnState extends Equatable {
   /// held here so the settings sheet can display and edit it). 0 count disables.
   final int reconnectRetryCount;
   final int reconnectRetryIntervalSeconds;
+
+  /// Servers-tab layout: true = flat, ping-sorted list; false = grouped by country.
+  final bool serversFlatView;
 
   final bool isImportingActivation;
   final bool isStartingTrial;
@@ -79,6 +85,7 @@ class VpnState extends Equatable {
     this.selectedServer,
     this.useCustomConfig = false,
     this.bookmarkedServers = const [],
+    this.recentServers = const [],
     this.isPinging = false,
     this.pingProgress = 0,
     this.pingTotal = 0,
@@ -86,6 +93,7 @@ class VpnState extends Equatable {
     this.pingBatchSize = 25,
     this.reconnectRetryCount = 3,
     this.reconnectRetryIntervalSeconds = 5,
+    this.serversFlatView = false,
     this.isImportingActivation = false,
     this.isStartingTrial = false,
     this.isSubmittingSubscription = false,
@@ -131,6 +139,7 @@ class VpnState extends Equatable {
     bool clearSelectedServer = false,
     bool? useCustomConfig,
     List<VpnServer>? bookmarkedServers,
+    List<VpnServer>? recentServers,
     bool? isPinging,
     int? pingProgress,
     int? pingTotal,
@@ -138,6 +147,7 @@ class VpnState extends Equatable {
     int? pingBatchSize,
     int? reconnectRetryCount,
     int? reconnectRetryIntervalSeconds,
+    bool? serversFlatView,
     bool? isImportingActivation,
     bool? isStartingTrial,
     bool? isSubmittingSubscription,
@@ -161,6 +171,7 @@ class VpnState extends Equatable {
           : (selectedServer ?? this.selectedServer),
       useCustomConfig: useCustomConfig ?? this.useCustomConfig,
       bookmarkedServers: bookmarkedServers ?? this.bookmarkedServers,
+      recentServers: recentServers ?? this.recentServers,
       isPinging: isPinging ?? this.isPinging,
       pingProgress: pingProgress ?? this.pingProgress,
       pingTotal: pingTotal ?? this.pingTotal,
@@ -169,6 +180,7 @@ class VpnState extends Equatable {
       reconnectRetryCount: reconnectRetryCount ?? this.reconnectRetryCount,
       reconnectRetryIntervalSeconds:
           reconnectRetryIntervalSeconds ?? this.reconnectRetryIntervalSeconds,
+      serversFlatView: serversFlatView ?? this.serversFlatView,
       isImportingActivation:
           isImportingActivation ?? this.isImportingActivation,
       isStartingTrial: isStartingTrial ?? this.isStartingTrial,
@@ -195,6 +207,7 @@ class VpnState extends Equatable {
     selectedServer,
     useCustomConfig,
     bookmarkedServers,
+    recentServers,
     isPinging,
     pingProgress,
     pingTotal,
@@ -202,6 +215,7 @@ class VpnState extends Equatable {
     pingBatchSize,
     reconnectRetryCount,
     reconnectRetryIntervalSeconds,
+    serversFlatView,
     isImportingActivation,
     isStartingTrial,
     isSubmittingSubscription,

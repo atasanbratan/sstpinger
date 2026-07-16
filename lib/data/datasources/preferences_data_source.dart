@@ -20,10 +20,12 @@ class PreferencesDataSource {
   static const String _keyPingTimeoutMs = 'ping_timeout_ms';
   static const String _keyPingBatchSize = 'ping_batch_size';
   static const String _keyBookmarks = 'bookmarked_servers';
+  static const String _keyRecents = 'recent_servers';
   static const String _keyServersWithPing = 'servers_with_ping';
   static const String _keyReconnectRetryCount = 'reconnect_retry_count';
   static const String _keyReconnectRetryIntervalSec =
       'reconnect_retry_interval_sec';
+  static const String _keyServersFlatView = 'servers_flat_view';
 
   static const int defaultPingTimeoutMs = 1500;
   static const int defaultPingBatchSize = 25;
@@ -132,6 +134,17 @@ class PreferencesDataSource {
     await prefs.setInt(_keyReconnectRetryIntervalSec, retryIntervalSec);
   }
 
+  /// Servers-tab layout: true = flat list, false = grouped by country.
+  Future<bool> getServersFlatView() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyServersFlatView) ?? false;
+  }
+
+  Future<void> saveServersFlatView(bool flat) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyServersFlatView, flat);
+  }
+
   /// Bookmarks are stored as full server records (not just endpoints) so they
   /// survive a server refetch even if the backend drops the node.
   Future<List<VpnServer>> getBookmarkedServers() async {
@@ -145,6 +158,23 @@ class PreferencesDataSource {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _keyBookmarks,
+      jsonEncode(VpnServerDto.listToJson(servers)),
+    );
+  }
+
+  /// Recently-connected servers, newest first — stored as full records (like
+  /// bookmarks) so they survive a refetch even if the backend drops the node.
+  Future<List<VpnServer>> getRecentServers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyRecents);
+    if (raw == null || raw.isEmpty) return [];
+    return VpnServerDto.listFromJson(jsonDecode(raw) as List<dynamic>);
+  }
+
+  Future<void> saveRecentServers(List<VpnServer> servers) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _keyRecents,
       jsonEncode(VpnServerDto.listToJson(servers)),
     );
   }

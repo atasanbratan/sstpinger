@@ -47,7 +47,9 @@ void main() {
     when(() => settings.getReconnectRetryCount()).thenAnswer((_) async => 3);
     when(() => settings.getReconnectRetryIntervalSeconds())
         .thenAnswer((_) async => 5);
+    when(() => settings.getServersFlatView()).thenAnswer((_) async => false);
     when(() => serverRepo.loadBookmarks()).thenAnswer((_) async => []);
+    when(() => serverRepo.loadRecents()).thenAnswer((_) async => []);
     when(() => serverRepo.loadCached()).thenAnswer((_) async => []);
     when(() => serverRepo.fetchServers())
         .thenAnswer((_) async => [reachable, dead]);

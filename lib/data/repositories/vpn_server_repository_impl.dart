@@ -109,4 +109,11 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
   @override
   Future<void> saveBookmarks(List<VpnServer> servers) =>
       _prefs.saveBookmarkedServers(servers);
+
+  @override
+  Future<List<VpnServer>> loadRecents() => _prefs.getRecentServers();
+
+  @override
+  Future<void> saveRecents(List<VpnServer> servers) =>
+      _prefs.saveRecentServers(servers);
 }

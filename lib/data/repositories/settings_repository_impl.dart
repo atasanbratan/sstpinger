@@ -34,4 +34,11 @@ class SettingsRepositoryImpl implements SettingsRepository {
     retryCount: retryCount,
     retryIntervalSec: retryIntervalSeconds,
   );
+
+  @override
+  Future<bool> getServersFlatView() => _prefs.getServersFlatView();
+
+  @override
+  Future<void> saveServersFlatView(bool flat) =>
+      _prefs.saveServersFlatView(flat);
 }
