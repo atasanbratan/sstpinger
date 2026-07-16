@@ -772,7 +772,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: d4f3da028c41db06ec1975c2b8a3988ed25da361
+      resolved-ref: "936eaf3610787cc08487e15aa27fa8f01278bd51"
       url: "https://github.com/atasanbratan/sstp_vpn_plugin.git"
     source: git
     version: "0.1.0"
