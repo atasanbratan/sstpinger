@@ -61,6 +61,7 @@ class AppDependencies {
     connect: ConnectTunnel(tunnel),
     disconnect: DisconnectTunnel(tunnel),
     watch: WatchTunnel(tunnel),
+    settings: settingsRepository,
   );
 
   VpnBloc buildVpnBloc() => VpnBloc(

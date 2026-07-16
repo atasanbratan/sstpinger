@@ -53,6 +53,11 @@ class VpnState extends Equatable {
   final int pingTimeoutMs;
   final int pingBatchSize;
 
+  /// Auto-reconnection policy (consumed by ConnectionBloc via the settings repo;
+  /// held here so the settings sheet can display and edit it). 0 count disables.
+  final int reconnectRetryCount;
+  final int reconnectRetryIntervalSeconds;
+
   final bool isImportingActivation;
   final bool isStartingTrial;
   final bool isSubmittingSubscription;
@@ -79,6 +84,8 @@ class VpnState extends Equatable {
     this.pingTotal = 0,
     this.pingTimeoutMs = 1500,
     this.pingBatchSize = 25,
+    this.reconnectRetryCount = 3,
+    this.reconnectRetryIntervalSeconds = 5,
     this.isImportingActivation = false,
     this.isStartingTrial = false,
     this.isSubmittingSubscription = false,
@@ -129,6 +136,8 @@ class VpnState extends Equatable {
     int? pingTotal,
     int? pingTimeoutMs,
     int? pingBatchSize,
+    int? reconnectRetryCount,
+    int? reconnectRetryIntervalSeconds,
     bool? isImportingActivation,
     bool? isStartingTrial,
     bool? isSubmittingSubscription,
@@ -157,6 +166,9 @@ class VpnState extends Equatable {
       pingTotal: pingTotal ?? this.pingTotal,
       pingTimeoutMs: pingTimeoutMs ?? this.pingTimeoutMs,
       pingBatchSize: pingBatchSize ?? this.pingBatchSize,
+      reconnectRetryCount: reconnectRetryCount ?? this.reconnectRetryCount,
+      reconnectRetryIntervalSeconds:
+          reconnectRetryIntervalSeconds ?? this.reconnectRetryIntervalSeconds,
       isImportingActivation:
           isImportingActivation ?? this.isImportingActivation,
       isStartingTrial: isStartingTrial ?? this.isStartingTrial,
@@ -188,6 +200,8 @@ class VpnState extends Equatable {
     pingTotal,
     pingTimeoutMs,
     pingBatchSize,
+    reconnectRetryCount,
+    reconnectRetryIntervalSeconds,
     isImportingActivation,
     isStartingTrial,
     isSubmittingSubscription,

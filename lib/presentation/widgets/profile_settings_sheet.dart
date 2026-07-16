@@ -191,6 +191,91 @@ class ProfileSettingsSheet extends StatelessWidget {
     );
   }
 
+  Widget _buildReconnectSettingsCard(BuildContext context, VpnState vpn) {
+    final count = vpn.reconnectRetryCount.clamp(0, 10);
+    final interval = vpn.reconnectRetryIntervalSeconds.clamp(1, 60);
+    final bloc = context.read<VpnBloc>();
+
+    return Card(
+      color: AppColors.surfaceRaised,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.refresh_rounded, color: AppColors.accent),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Retry count',
+                    style: TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                ),
+                Text(
+                  count == 0 ? 'Off' : '$count',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: count.toDouble(),
+              min: 0,
+              max: 10,
+              divisions: 10,
+              activeColor: AppColors.accent,
+              label: count == 0 ? 'Off' : '$count',
+              onChanged: (v) => bloc.add(ReconnectRetryCountChanged(v.round())),
+              onChangeEnd: (_) =>
+                  bloc.add(const ReconnectSettingsPersistRequested()),
+            ),
+            const Divider(color: Colors.white10, height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.hourglass_bottom_rounded,
+                  color: AppColors.accentSecondary,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Retry interval',
+                    style: TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                ),
+                Text(
+                  '${interval}s',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accentSecondary,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: interval.toDouble(),
+              min: 1,
+              max: 60,
+              divisions: 59,
+              activeColor: AppColors.accentSecondary,
+              label: '${interval}s',
+              onChanged: (v) =>
+                  bloc.add(ReconnectRetryIntervalChanged(v.round())),
+              onChangeEnd: (_) =>
+                  bloc.add(const ReconnectSettingsPersistRequested()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<VpnBloc, VpnState>(
@@ -396,6 +481,17 @@ class ProfileSettingsSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _buildPingSettingsCard(context, vpn),
+                const SizedBox(height: 20),
+                const Text(
+                  'RECONNECTION',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white38,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildReconnectSettingsCard(context, vpn),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

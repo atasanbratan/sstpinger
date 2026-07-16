@@ -92,6 +92,26 @@ class PingSettingsPersistRequested extends VpnEvent {
   const PingSettingsPersistRequested();
 }
 
+class ReconnectRetryCountChanged extends VpnEvent {
+  final int count;
+  const ReconnectRetryCountChanged(this.count);
+
+  @override
+  List<Object?> get props => [count];
+}
+
+class ReconnectRetryIntervalChanged extends VpnEvent {
+  final int seconds;
+  const ReconnectRetryIntervalChanged(this.seconds);
+
+  @override
+  List<Object?> get props => [seconds];
+}
+
+class ReconnectSettingsPersistRequested extends VpnEvent {
+  const ReconnectSettingsPersistRequested();
+}
+
 class UsernameChanged extends VpnEvent {
   final String username;
   const UsernameChanged(this.username);

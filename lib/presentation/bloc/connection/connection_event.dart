@@ -14,12 +14,17 @@ class ConnectionStarted extends ConnectionEvent {
 
 /// Bring the tunnel up with a fully-built config (the screen validates and
 /// assembles it from the selected server / custom config in [VpnBloc]).
+///
+/// [isReconnect] marks an automatic retry after a drop, so the bloc doesn't
+/// reset the attempt counter or re-read settings — user-initiated connects leave
+/// it false.
 class ConnectRequested extends ConnectionEvent {
   final TunnelConfig config;
-  const ConnectRequested(this.config);
+  final bool isReconnect;
+  const ConnectRequested(this.config, {this.isReconnect = false});
 
   @override
-  List<Object?> get props => [config];
+  List<Object?> get props => [config, isReconnect];
 }
 
 /// Tear the tunnel down.

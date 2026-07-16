@@ -16,12 +16,14 @@ import 'support/mocks.dart';
 
 void main() {
   late MockTunnelController tunnel;
+  late MockSettingsRepository settings;
   late StreamController<TunnelUpdate> updates;
 
   setUpAll(registerFallbacks);
 
   setUp(() {
     tunnel = MockTunnelController();
+    settings = MockSettingsRepository();
     updates = StreamController<TunnelUpdate>.broadcast();
     when(() => tunnel.updates).thenAnswer((_) => updates.stream);
     when(() => tunnel.lastStatus())
@@ -29,6 +31,11 @@ void main() {
     when(() => tunnel.requestPermission()).thenAnswer((_) async {});
     when(() => tunnel.connect(any())).thenAnswer((_) async {});
     when(() => tunnel.disconnect()).thenAnswer((_) async {});
+    // Reconnection off by default in these tests, so the existing cases exercise
+    // the plain lifecycle without a retry timer firing.
+    when(() => settings.getReconnectRetryCount()).thenAnswer((_) async => 0);
+    when(() => settings.getReconnectRetryIntervalSeconds())
+        .thenAnswer((_) async => 5);
   });
 
   tearDown(() => updates.close());
@@ -37,6 +44,7 @@ void main() {
     connect: ConnectTunnel(tunnel),
     disconnect: DisconnectTunnel(tunnel),
     watch: WatchTunnel(tunnel),
+    settings: settings,
   );
 
   const config = TunnelConfigStub();
@@ -100,6 +108,59 @@ void main() {
     act: (bloc) => bloc.add(const DisconnectRequested()),
     wait: const Duration(milliseconds: 50),
     verify: (_) => verify(() => tunnel.disconnect()).called(1),
+  );
+
+  // Enable a short reconnection policy for the retry tests.
+  void enableRetries({int count = 2, int intervalSec = 1}) {
+    when(() => settings.getReconnectRetryCount()).thenAnswer((_) async => count);
+    when(() => settings.getReconnectRetryIntervalSeconds())
+        .thenAnswer((_) async => intervalSec);
+  }
+
+  blocTest<ConnectionBloc, VpnConnectionState>(
+    'auto-reconnects after an unexpected drop when retries are enabled',
+    build: () {
+      enableRetries();
+      return build();
+    },
+    act: (bloc) async {
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(ConnectRequested(config.value));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      updates.add(const TunnelUpdate(status: TunnelStatus.connected));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // A drop we didn't ask for.
+      updates.add(const TunnelUpdate(status: TunnelStatus.disconnected));
+    },
+    wait: const Duration(milliseconds: 1300),
+    verify: (_) {
+      // Initial connect + one automatic retry.
+      verify(() => tunnel.connect(any())).called(2);
+    },
+  );
+
+  blocTest<ConnectionBloc, VpnConnectionState>(
+    'a user disconnect never triggers a reconnection',
+    build: () {
+      enableRetries();
+      return build();
+    },
+    act: (bloc) async {
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(ConnectRequested(config.value));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      updates.add(const TunnelUpdate(status: TunnelStatus.connected));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      bloc.add(const DisconnectRequested());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      updates.add(const TunnelUpdate(status: TunnelStatus.disconnected));
+    },
+    wait: const Duration(milliseconds: 1300),
+    verify: (_) {
+      // Only the initial connect — no retry after an intentional disconnect.
+      verify(() => tunnel.connect(any())).called(1);
+      verify(() => tunnel.disconnect()).called(1);
+    },
   );
 }
 

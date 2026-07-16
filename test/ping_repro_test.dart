@@ -44,6 +44,9 @@ void main() {
         .thenAnswer((_) async => const Subscription());
     when(() => settings.getPingTimeoutMs()).thenAnswer((_) async => 1500);
     when(() => settings.getPingBatchSize()).thenAnswer((_) async => 25);
+    when(() => settings.getReconnectRetryCount()).thenAnswer((_) async => 3);
+    when(() => settings.getReconnectRetryIntervalSeconds())
+        .thenAnswer((_) async => 5);
     when(() => serverRepo.loadBookmarks()).thenAnswer((_) async => []);
     when(() => serverRepo.loadCached()).thenAnswer((_) async => []);
     when(() => serverRepo.fetchServers())

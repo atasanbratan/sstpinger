@@ -21,9 +21,17 @@ class PreferencesDataSource {
   static const String _keyPingBatchSize = 'ping_batch_size';
   static const String _keyBookmarks = 'bookmarked_servers';
   static const String _keyServersWithPing = 'servers_with_ping';
+  static const String _keyReconnectRetryCount = 'reconnect_retry_count';
+  static const String _keyReconnectRetryIntervalSec =
+      'reconnect_retry_interval_sec';
 
   static const int defaultPingTimeoutMs = 1500;
   static const int defaultPingBatchSize = 25;
+
+  // Reconnection defaults: on an unexpected drop, retry a few times a few
+  // seconds apart. A retry count of 0 disables auto-reconnection.
+  static const int defaultReconnectRetryCount = 3;
+  static const int defaultReconnectRetryIntervalSec = 5;
 
   Future<String> getUsername() async {
     final prefs = await SharedPreferences.getInstance();
@@ -102,6 +110,26 @@ class PreferencesDataSource {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyPingTimeoutMs, timeoutMs);
     await prefs.setInt(_keyPingBatchSize, batchSize);
+  }
+
+  Future<int> getReconnectRetryCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyReconnectRetryCount) ?? defaultReconnectRetryCount;
+  }
+
+  Future<int> getReconnectRetryIntervalSec() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyReconnectRetryIntervalSec) ??
+        defaultReconnectRetryIntervalSec;
+  }
+
+  Future<void> saveReconnectSettings({
+    required int retryCount,
+    required int retryIntervalSec,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyReconnectRetryCount, retryCount);
+    await prefs.setInt(_keyReconnectRetryIntervalSec, retryIntervalSec);
   }
 
   /// Bookmarks are stored as full server records (not just endpoints) so they

@@ -71,6 +71,9 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<PingTimeoutChanged>(_onPingTimeout);
     on<PingBatchSizeChanged>(_onPingBatch);
     on<PingSettingsPersistRequested>(_onPersistPing);
+    on<ReconnectRetryCountChanged>(_onReconnectCount);
+    on<ReconnectRetryIntervalChanged>(_onReconnectInterval);
+    on<ReconnectSettingsPersistRequested>(_onPersistReconnect);
     on<UsernameChanged>(_onUsername);
     on<ActivationCodeSubmitted>(_onActivation);
     on<FreeTrialRequested>(_onTrial);
@@ -83,6 +86,8 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     final sub = await _subs.loadSubscription();
     final timeout = await _settings.getPingTimeoutMs();
     final batch = await _settings.getPingBatchSize();
+    final retryCount = await _settings.getReconnectRetryCount();
+    final retryInterval = await _settings.getReconnectRetryIntervalSeconds();
     final bookmarks = await _serverRepo.loadBookmarks();
     final cached = await _loadCached();
 
@@ -94,6 +99,8 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         lastFetchTime: sub.lastFetch,
         pingTimeoutMs: timeout,
         pingBatchSize: batch,
+        reconnectRetryCount: retryCount,
+        reconnectRetryIntervalSeconds: retryInterval,
         bookmarkedServers: bookmarks,
         servers: cached.isNotEmpty && state.servers.isEmpty
             ? cached
@@ -324,6 +331,26 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
   ) => _settings.savePingSettings(
     timeoutMs: state.pingTimeoutMs,
     batchSize: state.pingBatchSize,
+  );
+
+  void _onReconnectCount(
+    ReconnectRetryCountChanged event,
+    Emitter<VpnState> emit,
+  ) => emit(state.copyWith(reconnectRetryCount: event.count.clamp(0, 20)));
+
+  void _onReconnectInterval(
+    ReconnectRetryIntervalChanged event,
+    Emitter<VpnState> emit,
+  ) => emit(state.copyWith(
+    reconnectRetryIntervalSeconds: event.seconds.clamp(1, 60),
+  ));
+
+  Future<void> _onPersistReconnect(
+    ReconnectSettingsPersistRequested event,
+    Emitter<VpnState> emit,
+  ) => _settings.saveReconnectSettings(
+    retryCount: state.reconnectRetryCount,
+    retryIntervalSeconds: state.reconnectRetryIntervalSeconds,
   );
 
   Future<void> _onUsername(UsernameChanged event, Emitter<VpnState> emit) async {

@@ -1,7 +1,7 @@
 import '../../domain/repositories/settings_repository.dart';
 import '../datasources/preferences_data_source.dart';
 
-/// Ping settings, backed by local preferences.
+/// Ping and reconnection settings, backed by local preferences.
 class SettingsRepositoryImpl implements SettingsRepository {
   final PreferencesDataSource _prefs;
 
@@ -18,4 +18,20 @@ class SettingsRepositoryImpl implements SettingsRepository {
     required int timeoutMs,
     required int batchSize,
   }) => _prefs.savePingSettings(timeoutMs: timeoutMs, batchSize: batchSize);
+
+  @override
+  Future<int> getReconnectRetryCount() => _prefs.getReconnectRetryCount();
+
+  @override
+  Future<int> getReconnectRetryIntervalSeconds() =>
+      _prefs.getReconnectRetryIntervalSec();
+
+  @override
+  Future<void> saveReconnectSettings({
+    required int retryCount,
+    required int retryIntervalSeconds,
+  }) => _prefs.saveReconnectSettings(
+    retryCount: retryCount,
+    retryIntervalSec: retryIntervalSeconds,
+  );
 }
