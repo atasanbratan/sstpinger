@@ -194,16 +194,36 @@ jobs:
           if (-not $asset) { throw "no SoftEther Windows vpnclient asset found" }
           Write-Host "downloading $($asset.name)"
           Invoke-WebRequest $asset.browser_download_url -OutFile se.exe
-          # The installer is Inno Setup. 7z only yields the exes (not hamcore.se2)
-          # and a silent install hangs in headless CI on the driver dialog, so
-          # extract it with innoextract, which unpacks the full payload offline.
-          choco install innoextract -y --no-progress | Out-Null
-          & innoextract -e -d se_x se.exe | Out-Null
+          # Silent-install, but the installer HANGS headless on the virtual-adapter
+          # driver step — which runs AFTER it copies the files. So kill it once the
+          # files exist (or after a timeout) and take them from the install dir.
+          Write-Host "installing (killed after files land; driver step hangs headless)"
+          $p = Start-Process -FilePath .\se.exe `
+            -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR=C:\se' -PassThru
+          for ($i = 0; $i -lt 60; $i++) {
+            if (Test-Path 'C:\se\hamcore.se2') { break }
+            if ($p.HasExited) { break }
+            Start-Sleep -Seconds 2
+          }
+          Start-Sleep -Seconds 2
+          if (-not $p.HasExited) { try { $p.Kill() } catch {} ; Write-Host "killed installer" }
           $dest = "build/windows/x64/runner/Release/softether"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $roots = @('C:\se', "${env:ProgramFiles}\SoftEther VPN Client",
+                     "${env:ProgramFiles(x86)}\SoftEther VPN Client",
+                     "${env:ProgramFiles}", "${env:ProgramFiles(x86)}")
           foreach ($f in @('vpnclient.exe','vpncmd.exe','hamcore.se2')) {
-            $hit = Get-ChildItem -Recurse -Path se_x -Filter $f -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $hit) { throw "$f not found in the extracted SoftEther installer" }
+            $hit = $null
+            foreach ($r in $roots) {
+              if (Test-Path $r) {
+                $hit = Get-ChildItem -Recurse -Path $r -Filter $f -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($hit) { break }
+              }
+            }
+            if (-not $hit) {
+              Write-Host "contents of C:\se:"; Get-ChildItem -Recurse C:\se -ErrorAction SilentlyContinue | Select-Object FullName
+              throw "$f not found after install"
+            }
             Copy-Item $hit.FullName (Join-Path $dest $f)
           }
           Get-ChildItem $dest | Format-Table Name,Length
