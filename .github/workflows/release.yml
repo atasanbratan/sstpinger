@@ -194,22 +194,16 @@ jobs:
           if (-not $asset) { throw "no SoftEther Windows vpnclient asset found" }
           Write-Host "downloading $($asset.name)"
           Invoke-WebRequest $asset.browser_download_url -OutFile se.exe
-          # Silent install (the installer is Inno-style). 7z only yields the exes,
-          # not hamcore.se2, so let the installer place the full payload.
-          Start-Process -FilePath .\se.exe `
-            -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/DIR=C:\se' -Wait
+          # The installer is Inno Setup. 7z only yields the exes (not hamcore.se2)
+          # and a silent install hangs in headless CI on the driver dialog, so
+          # extract it with innoextract, which unpacks the full payload offline.
+          choco install innoextract -y --no-progress | Out-Null
+          & innoextract -e -d se_x se.exe | Out-Null
           $dest = "build/windows/x64/runner/Release/softether"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $roots = @('C:\se', "${env:ProgramFiles}", "${env:ProgramFiles(x86)}")
           foreach ($f in @('vpnclient.exe','vpncmd.exe','hamcore.se2')) {
-            $hit = $null
-            foreach ($r in $roots) {
-              if (Test-Path $r) {
-                $hit = Get-ChildItem -Recurse -Path $r -Filter $f -ErrorAction SilentlyContinue | Select-Object -First 1
-                if ($hit) { break }
-              }
-            }
-            if (-not $hit) { throw "$f not found after installing SoftEther" }
+            $hit = Get-ChildItem -Recurse -Path se_x -Filter $f -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $hit) { throw "$f not found in the extracted SoftEther installer" }
             Copy-Item $hit.FullName (Join-Path $dest $f)
           }
           Get-ChildItem $dest | Format-Table Name,Length
