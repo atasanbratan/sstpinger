@@ -194,22 +194,37 @@ jobs:
           if (-not $asset) { throw "no SoftEther Windows vpnclient asset found" }
           Write-Host "downloading $($asset.name)"
           Invoke-WebRequest $asset.browser_download_url -OutFile se.exe
-          # The installer (vpnsetup.exe) embeds the payload in its PE resources
-          # under fixed names; 7z pulls them out with no install (so no headless
-          # driver-dialog hang). Verified names for the x64 client:
+          # The installer (vpnsetup.exe) embeds the payload in its PE resources;
+          # 7z pulls them out with no install (so no headless driver-dialog hang).
+          # The exes are NOT stored raw: each is a 4-byte big-endian uncompressed
+          # size followed by a zlib stream, so they must be inflated or Windows
+          # rejects them ("not compatible with the version of Windows"). hamcore
+          # IS stored raw (it already starts with the "HamCore" magic).
           & "$env:ProgramFiles\7-Zip\7z.exe" x se.exe -ose_x -y | Out-Null
           $dest = "build/windows/x64/runner/Release/softether"
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          $map = @{
-            'vpnclient.exe' = 'VPNCLIENT_X64.EXE'
-            'vpncmd.exe'    = 'VPNCMD_X64.EXE'
-            'hamcore.se2'   = 'RAW_HAMCORE.SE2'
-          }
-          foreach ($out in $map.Keys) {
-            $src = Get-ChildItem -Recurse -Path se_x -Filter $map[$out] -ErrorAction SilentlyContinue | Select-Object -First 1
-            if (-not $src) { throw "$($map[$out]) not found in the SoftEther installer resources" }
-            Copy-Item $src.FullName (Join-Path $dest $out)
-          }
+          $ham = Get-ChildItem -Recurse -Path se_x -Filter 'RAW_HAMCORE.SE2' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ham) { throw "RAW_HAMCORE.SE2 not found in the installer resources" }
+          Copy-Item $ham.FullName (Join-Path $dest 'hamcore.se2')
+          $dataDir = $ham.Directory.FullName
+
+          @'
+          import sys, zlib
+          src, dst = sys.argv[1], sys.argv[2]
+          d = open(src, 'rb').read()
+          size = int.from_bytes(d[:4], 'big')      # uncompressed size prefix
+          out = zlib.decompress(d[4:])             # zlib stream follows
+          if len(out) != size:
+              raise SystemExit(f'size mismatch: {len(out)} != {size}')
+          if out[:2] != b'MZ':
+              raise SystemExit('inflated payload is not a PE executable')
+          open(dst, 'wb').write(out)
+          print(f'{dst}: {len(out)} bytes')
+          '@ | Set-Content -Path unpack.py -Encoding ascii
+          python unpack.py "$dataDir\VPNCLIENT_X64.EXE" "$dest\vpnclient.exe"
+          if ($LASTEXITCODE -ne 0) { throw "failed to inflate vpnclient" }
+          python unpack.py "$dataDir\VPNCMD_X64.EXE" "$dest\vpncmd.exe"
+          if ($LASTEXITCODE -ne 0) { throw "failed to inflate vpncmd" }
           Get-ChildItem $dest | Format-Table Name,Length
 
       - name: Package

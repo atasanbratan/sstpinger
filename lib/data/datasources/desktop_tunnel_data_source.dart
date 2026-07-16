@@ -87,6 +87,7 @@ class DesktopTunnelDataSource implements TunnelDataSource {
   Future<void> connect(TunnelConfig config) async {
     logLine('connect: protocol=${config.protocol.name} '
         'host=${config.host}:${config.port} user=${config.username}');
+    await _probe(config.host, config.port);
     if (config.protocol == TunnelProtocol.softEther) {
       return _connectSoftEther(config);
     }
@@ -110,6 +111,22 @@ class DesktopTunnelDataSource implements TunnelDataSource {
     } catch (e, s) {
       logLine('[sstp] connect error: $e\n$s');
       rethrow;
+    }
+  }
+
+  /// Plain TCP reach test before the real connect. If this fails or stalls, the
+  /// problem is the network/firewall to that server — not the VPN protocol — and
+  /// the log says so instead of leaving a silent hang to guess about.
+  Future<void> _probe(String host, int port) async {
+    final sw = Stopwatch()..start();
+    try {
+      final s = await Socket.connect(host, port,
+          timeout: const Duration(seconds: 10));
+      logLine('tcp probe: reachable in ${sw.elapsedMilliseconds}ms '
+          '(local ${s.address.address}:${s.port} -> ${s.remoteAddress.address})');
+      s.destroy();
+    } catch (e) {
+      logLine('tcp probe: FAILED after ${sw.elapsedMilliseconds}ms: $e');
     }
   }
 
