@@ -134,6 +134,17 @@ class DesktopTunnelDataSource implements TunnelDataSource {
     _softEtherActive = true;
     final binDir = _softetherBinDir;
     logLine('[softether] binDir=$binDir exists=${Directory(binDir).existsSync()}');
+
+    // On Windows the client must be installed by its own installer (it registers
+    // the adapter driver). Say so plainly rather than failing deep inside vpncmd.
+    if (Platform.isWindows && !File('$binDir\\vpncmd.exe').existsSync()) {
+      _onError?.call(
+        'SoftEther on Windows needs the official SoftEther VPN Client installed '
+        '(it registers the virtual adapter driver). Install it from '
+        'softether-download.com, then try again — or use the SSTP protocol.',
+      );
+      return;
+    }
     final client = _softether ??= SoftEtherConnection.forPlatform(
       binDir: binDir,
       // Linux only; Windows drives the client directly (already elevated).
@@ -180,12 +191,24 @@ class DesktopTunnelDataSource implements TunnelDataSource {
     });
   }
 
-  /// Where the bundled SoftEther binaries (vpnclient/vpncmd/hamcore.se2) live.
-  /// `SOFTETHER_DIR` overrides; otherwise a `softether/` folder beside the
-  /// executable (where the release bundle ships them).
+  /// Where the SoftEther client lives.
+  ///
+  /// `SOFTETHER_DIR` always wins. Otherwise the platforms differ: **Linux** uses
+  /// the copy we bundle beside the executable, while **Windows** uses the user's
+  /// officially-installed VPN Client — creating the virtual adapter there needs
+  /// a signed NDIS driver that only the real installer can register, so a
+  /// bundled copy cannot work.
   String get _softetherBinDir {
     final env = Platform.environment['SOFTETHER_DIR'];
     if (env != null && env.isNotEmpty) return env;
+    if (Platform.isWindows) {
+      final installed = VpnclientService.findWindowsInstall();
+      if (installed != null) {
+        logLine('[softether] using installed client: $installed');
+        return installed;
+      }
+      logLine('[softether] no SoftEther VPN Client installation found');
+    }
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     return '$exeDir${Platform.pathSeparator}softether';
   }

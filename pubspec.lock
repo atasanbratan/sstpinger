@@ -722,7 +722,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "9e52f0318fa192b25b6203fc2c83d15d60d2d6ab"
+      resolved-ref: "20a4edeb31df9059f47bb6f1e421fe7ad55d50b8"
       url: "https://github.com/atasanbratan/softether_client.git"
     source: git
     version: "0.1.0"
@@ -772,7 +772,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "936eaf3610787cc08487e15aa27fa8f01278bd51"
+      resolved-ref: fbb662acc2fb37166a8e8119efe3dec7b1417f85
       url: "https://github.com/atasanbratan/sstp_vpn_plugin.git"
     source: git
     version: "0.1.0"
