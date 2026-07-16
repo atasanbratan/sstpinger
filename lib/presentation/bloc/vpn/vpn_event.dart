@@ -131,6 +131,15 @@ class ServersViewModeChanged extends VpnEvent {
   List<Object?> get props => [flat];
 }
 
+/// Selects the tunnel protocol and persists the choice.
+class ProtocolChanged extends VpnEvent {
+  final TunnelProtocol protocol;
+  const ProtocolChanged(this.protocol);
+
+  @override
+  List<Object?> get props => [protocol];
+}
+
 class UsernameChanged extends VpnEvent {
   final String username;
   const UsernameChanged(this.username);

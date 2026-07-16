@@ -6,6 +6,7 @@ import 'package:advertising_id/advertising_id.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../domain/entities/tunnel_protocol.dart';
 import '../../domain/entities/vpn_server.dart';
 import '../dto/vpn_server_dto.dart';
 
@@ -26,6 +27,7 @@ class PreferencesDataSource {
   static const String _keyReconnectRetryIntervalSec =
       'reconnect_retry_interval_sec';
   static const String _keyServersFlatView = 'servers_flat_view';
+  static const String _keyProtocol = 'tunnel_protocol';
 
   static const int defaultPingTimeoutMs = 1500;
   static const int defaultPingBatchSize = 25;
@@ -143,6 +145,17 @@ class PreferencesDataSource {
   Future<void> saveServersFlatView(bool flat) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyServersFlatView, flat);
+  }
+
+  /// The selected tunnel protocol, stored by its enum name.
+  Future<TunnelProtocol> getProtocol() async {
+    final prefs = await SharedPreferences.getInstance();
+    return TunnelProtocol.fromName(prefs.getString(_keyProtocol));
+  }
+
+  Future<void> saveProtocol(TunnelProtocol protocol) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyProtocol, protocol.name);
   }
 
   /// Bookmarks are stored as full server records (not just endpoints) so they

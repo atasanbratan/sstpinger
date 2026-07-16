@@ -1,3 +1,5 @@
+import '../entities/tunnel_protocol.dart';
+
 /// Contract for user-tunable settings (ping probe parameters and the
 /// auto-reconnection policy).
 abstract class SettingsRepository {
@@ -22,4 +24,9 @@ abstract class SettingsRepository {
   Future<bool> getServersFlatView();
 
   Future<void> saveServersFlatView(bool flat);
+
+  /// The selected tunnel protocol.
+  Future<TunnelProtocol> getProtocol();
+
+  Future<void> saveProtocol(TunnelProtocol protocol);
 }

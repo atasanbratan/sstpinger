@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sstp_shield/domain/entities/tunnel_protocol.dart';
 import 'package:sstp_shield/data/datasources/tcp_ping_service.dart';
 import 'package:sstp_shield/domain/entities/subscription.dart';
 import 'package:sstp_shield/domain/usecases/fetch_servers.dart';
@@ -48,6 +49,8 @@ void main() {
     when(() => settings.getReconnectRetryIntervalSeconds())
         .thenAnswer((_) async => 5);
     when(() => settings.getServersFlatView()).thenAnswer((_) async => false);
+    when(() => settings.getProtocol())
+        .thenAnswer((_) async => TunnelProtocol.sstp);
     when(() => serverRepo.loadBookmarks()).thenAnswer((_) async => []);
     when(() => serverRepo.loadRecents()).thenAnswer((_) async => []);
     when(() => serverRepo.loadCached()).thenAnswer((_) async => []);

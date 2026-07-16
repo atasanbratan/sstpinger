@@ -108,9 +108,20 @@ jobs:
       - name: Install Linux build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config
+          sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config \
+            build-essential libssl-dev
       - run: flutter pub get
       - run: flutter build linux --release --target lib/main.dart
+
+      # Build the SoftEther client (vpnclient/vpncmd/hamcore) and compile the
+      # privileged pkexec helper, so the SoftEther protocol works out of the box.
+      - name: Build & stage SoftEther
+        run: |
+          git clone --depth 1 https://github.com/atasanbratan/softether_client.git /tmp/se
+          bash /tmp/se/tool/fetch_softether.sh /tmp/se/softether
+          (cd /tmp/se && dart pub get && \
+            dart compile exe bin/softether_helper.dart -o softether/softether-helper)
+          ls -la /tmp/se/softether
 
       # Ship the privilege setup with the bundle: it creates a TUN device, which
       # needs CAP_NET_ADMIN, and the setup is three non-obvious steps. The bundle
@@ -121,16 +132,24 @@ jobs:
           STAGE=sstp-shield-linux-x64
           mkdir -p "$STAGE"
           cp -r build/linux/x64/release/bundle/. "$STAGE/"
+          # SoftEther client + pkexec helper, next to the executable.
+          mkdir -p "$STAGE/softether"
+          cp /tmp/se/softether/vpnclient /tmp/se/softether/vpncmd \
+             /tmp/se/softether/hamcore.se2 /tmp/se/softether/softether-helper \
+             "$STAGE/softether/"
           # setup_privilege.sh + ip_wrapper.c come from the plugin.
           git clone --depth 1 https://github.com/atasanbratan/sstp_vpn_plugin.git /tmp/plugin
           mkdir -p "$STAGE/tool"
           cp /tmp/plugin/tool/setup_privilege.sh /tmp/plugin/tool/ip_wrapper.c "$STAGE/tool/"
           cat > "$STAGE/README-FIRST.txt" <<'EOF'
-          Do NOT run this with sudo.
-          Grant CAP_NET_ADMIN once (needs gcc, libcap, patchelf), then launch the
-          generated sstp-vpn script — not the binary:
+          SSTP protocol (default): do NOT run with sudo. Grant CAP_NET_ADMIN once
+          (needs gcc, libcap, patchelf), then launch the generated sstp-vpn script:
               ./tool/setup_privilege.sh ./sstp_shield
               ./sstp-vpn
+
+          SoftEther protocol: no setup needed - just run ./sstp_shield. Choosing
+          SoftEther elevates a helper via pkexec (needs polkit; a password prompt
+          appears on connect).
           EOF
           tar czf sstp-shield-linux-x64.tar.gz "$STAGE"
       - uses: actions/upload-artifact@v4
@@ -163,6 +182,27 @@ jobs:
             throw "$exe is not marked requireAdministrator — check /MANIFESTUAC in windows/runner/CMakeLists.txt"
           }
           Write-Host "OK: wintun.dll bundled and exe requests elevation."
+
+      # Fetch the official SoftEther Windows client and bundle vpnclient.exe /
+      # vpncmd.exe / hamcore.se2 next to the app, so the SoftEther protocol works.
+      # No pkexec helper here - the app already runs elevated (requireAdministrator).
+      - name: Fetch and stage SoftEther (Windows)
+        shell: pwsh
+        run: |
+          $rel = Invoke-RestMethod "https://api.github.com/repos/SoftEtherVPN/SoftEtherVPN_Stable/releases/latest"
+          $asset = $rel.assets | Where-Object { $_.name -match 'vpnclient.*windows' } | Select-Object -First 1
+          if (-not $asset) { throw "no SoftEther Windows vpnclient asset found" }
+          Write-Host "downloading $($asset.name)"
+          Invoke-WebRequest $asset.browser_download_url -OutFile se.exe
+          & "$env:ProgramFiles\7-Zip\7z.exe" x se.exe -ose_x -y | Out-Null
+          $dest = "build/windows/x64/runner/Release/softether"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          foreach ($f in @('vpnclient.exe','vpncmd.exe','hamcore.se2')) {
+            $hit = Get-ChildItem -Recurse -Path se_x -Filter $f -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $hit) { throw "$f not found in the extracted SoftEther installer" }
+            Copy-Item $hit.FullName (Join-Path $dest $f)
+          }
+          Get-ChildItem $dest | Format-Table Name,Length
 
       - name: Package
         shell: pwsh

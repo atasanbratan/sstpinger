@@ -4,24 +4,30 @@ import 'dart:io';
 import 'package:sstp_vpn_plugin/sstp_vpn_plugin.dart';
 
 import '../../domain/entities/tunnel_config.dart';
+import '../../domain/entities/tunnel_protocol.dart';
 import '../../domain/entities/tunnel_status.dart';
 import '../../domain/entities/tunnel_traffic.dart';
 import 'tunnel_data_source.dart';
 
 /// Linux / Windows tunnel, via our own `sstp_vpn_plugin`. The only place
-/// `sstp_vpn_plugin` is imported. Two things differ from mobile and are handled
-/// here rather than being pushed up:
+/// `sstp_vpn_plugin` is imported. It carries **two backends** — SSTP
+/// (`SstpVpnClient`, our pure-Dart stack) and SoftEther (`SoftEtherClient`,
+/// driving the official vpnclient/vpncmd) — chosen per connect by
+/// [TunnelConfig.protocol]. SoftEther is Linux-only for now.
 ///
-/// * **No byte counters.** The plugin reports status, not throughput, so
-///   [TunnelTraffic] comes back null and the UI shows 0. Faking numbers would be
-///   worse than showing none.
-/// * **No status ticks.** The plugin emits a status once, on change; it does not
-///   pulse while connected. Mobile's `onConnected` fires repeatedly and that is
-///   what drives the on-screen timer, so a ticker here supplies the same beat.
+/// Two things differ from mobile and are handled here rather than pushed up:
+///
+/// * **No byte counters.** Neither backend reports throughput, so
+///   [TunnelTraffic] comes back null and the UI shows 0.
+/// * **No status ticks.** They emit a status once, on change; a ticker here
+///   supplies the per-second beat mobile's repeated `onConnected` gives.
 class DesktopTunnelDataSource implements TunnelDataSource {
-  final SstpVpnClient _client = SstpVpnClient();
+  final SstpVpnClient _sstp = SstpVpnClient();
+  SoftEtherConnection? _softether;
+  bool _softEtherActive = false;
 
-  StreamSubscription<VpnStatus>? _statusSub;
+  StreamSubscription<VpnStatus>? _sstpSub;
+  StreamSubscription<SoftEtherStatus>? _softetherSub;
   Timer? _ticker;
   DateTime? _connectedAt;
 
@@ -30,9 +36,6 @@ class DesktopTunnelDataSource implements TunnelDataSource {
   void Function()? _onDisconnected;
   void Function(String message)? _onError;
 
-  /// Nothing survives the process on desktop: the tun device is owned by this
-  /// process's file descriptor, and the routes are torn down with it. So there
-  /// is never a previous connection to recover.
   @override
   Future<TunnelStatus> lastStatus() async => TunnelStatus.disconnected;
 
@@ -48,8 +51,8 @@ class DesktopTunnelDataSource implements TunnelDataSource {
     _onDisconnected = onDisconnected;
     _onError = onError;
 
-    _statusSub?.cancel();
-    _statusSub = _client.status.listen((status) {
+    _sstpSub?.cancel();
+    _sstpSub = _sstp.status.listen((status) {
       switch (status) {
         case VpnStatus.connecting:
           _onConnecting?.call();
@@ -64,15 +67,92 @@ class DesktopTunnelDataSource implements TunnelDataSource {
         case VpnStatus.handshakeFailed:
         case VpnStatus.tunnelSetupFailed:
           _stopTicker();
-          _onError?.call(_messageFor(status));
+          _onError?.call(_sstpMessageFor(status));
       }
     });
   }
 
-  /// The plugin's errors are the same on both desktop platforms, but the remedy
-  /// is not — CAP_NET_ADMIN on Linux, Administrator on Windows — so the privilege
-  /// message has to name the right one.
-  String _messageFor(VpnStatus status) => switch (status) {
+  @override
+  Future<void> requestPermission() async {}
+
+  @override
+  Future<void> connect(TunnelConfig config) async {
+    if (config.protocol == TunnelProtocol.softEther) {
+      return _connectSoftEther(config);
+    }
+    _softEtherActive = false;
+    try {
+      await _sstp.connect(
+        host: config.host,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+        verifyCert: false, // VPN Gate servers are self-signed.
+        routeMode: RouteMode.full,
+      );
+    } on SstpVpnException catch (e) {
+      // A cancel mid-handshake completes connect() with an error; not worth
+      // surfacing — the status stream already reported `disconnected`.
+      if (e.status == VpnStatus.disconnected) return;
+      rethrow;
+    }
+  }
+
+  Future<void> _connectSoftEther(TunnelConfig config) async {
+    _softEtherActive = true;
+    final binDir = _softetherBinDir;
+    final client = _softether ??= SoftEtherConnection.forPlatform(
+      binDir: binDir,
+      // Linux only; Windows drives the client directly (already elevated).
+      helperPath: '$binDir${Platform.pathSeparator}softether-helper',
+    );
+    _bindSoftEther(client);
+    try {
+      await client.connect(
+        host: config.host,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+      );
+    } on SoftEtherException catch (e) {
+      if (e.status == SoftEtherStatus.disconnected) return;
+      rethrow;
+    }
+  }
+
+  void _bindSoftEther(SoftEtherConnection client) {
+    _softetherSub?.cancel();
+    _softetherSub = client.status.listen((status) {
+      switch (status) {
+        case SoftEtherStatus.connecting:
+          _onConnecting?.call();
+        case SoftEtherStatus.connected:
+          _connectedAt = DateTime.now();
+          _startTicker();
+        case SoftEtherStatus.disconnected:
+        case SoftEtherStatus.disconnecting:
+          _stopTicker();
+          _onDisconnected?.call();
+        case SoftEtherStatus.connectFailed:
+        case SoftEtherStatus.missingPrivilege:
+        case SoftEtherStatus.error:
+          _stopTicker();
+          _onError?.call(_softEtherMessageFor(status));
+      }
+    });
+  }
+
+  /// Where the bundled SoftEther binaries (vpnclient/vpncmd/hamcore.se2) live.
+  /// `SOFTETHER_DIR` overrides; otherwise a `softether/` folder beside the
+  /// executable (where the release bundle ships them).
+  String get _softetherBinDir {
+    final env = Platform.environment['SOFTETHER_DIR'];
+    if (env != null && env.isNotEmpty) return env;
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    return '$exeDir${Platform.pathSeparator}softether';
+  }
+
+  String _sstpMessageFor(VpnStatus status) => switch (status) {
     VpnStatus.missingPrivilege => Platform.isWindows
         ? 'This app must run as Administrator to create a VPN adapter.'
         : 'This app needs CAP_NET_ADMIN to create a VPN interface. '
@@ -85,50 +165,28 @@ class DesktopTunnelDataSource implements TunnelDataSource {
     _ => 'Connection failed. Please choose another server.',
   };
 
-  /// Desktop privilege is arranged outside the app (a file capability on Linux,
-  /// the elevation manifest on Windows), so there is no in-app consent step. If
-  /// privilege is missing, `connect()` says so as `missingPrivilege`.
-  @override
-  Future<void> requestPermission() async {}
+  String _softEtherMessageFor(SoftEtherStatus status) => switch (status) {
+    SoftEtherStatus.missingPrivilege =>
+      'SoftEther needs root to create its adapter. Launch the app elevated.',
+    SoftEtherStatus.connectFailed =>
+      'Could not establish the SoftEther session. Try another server.',
+    _ => 'SoftEther connection failed. Please try another server.',
+  };
 
   @override
-  Future<void> connect(TunnelConfig config) async {
-    try {
-      await _client.connect(
-        host: config.host,
-        port: config.port,
-        username: config.username,
-        password: config.password,
-        verifyCert: false, // VPN Gate servers are self-signed.
-        routeMode: RouteMode.full,
-      );
-    } on SstpVpnException catch (e) {
-      // Cancelling mid-handshake completes the pending connect() with an error.
-      // That is not a failure worth telling the user about — they asked for it,
-      // and the status stream has already reported `disconnected`.
-      if (e.status == VpnStatus.disconnected) return;
-      rethrow;
-    }
-  }
-
-  @override
-  Future<void> disconnect() => _client.disconnect();
+  Future<void> disconnect() => _softEtherActive
+      ? (_softether?.disconnect() ?? Future.value())
+      : _sstp.disconnect();
 
   void _startTicker() {
     _ticker?.cancel();
-    // Fire immediately so the UI flips to "connected" without waiting a second.
-    _emitConnected();
-    _ticker = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) => _emitConnected(),
-    );
+    _emitConnected(); // flip to "connected" immediately, no 1s wait
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _emitConnected());
   }
 
   void _emitConnected() {
     final since = _connectedAt;
     if (since == null) return;
-    // Null traffic, not zeroed traffic: the plugin counts no bytes, and the UI
-    // renders null as 0 anyway.
     _onConnected?.call(null, DateTime.now().difference(since));
   }
 
@@ -141,7 +199,9 @@ class DesktopTunnelDataSource implements TunnelDataSource {
   @override
   void dispose() {
     _stopTicker();
-    _statusSub?.cancel();
-    _client.dispose();
+    _sstpSub?.cancel();
+    _softetherSub?.cancel();
+    _sstp.dispose();
+    _softether?.dispose();
   }
 }

@@ -32,6 +32,10 @@ BUNDLE      := build/linux/x64/release/bundle
 APP         := $(BUNDLE)/sstp_shield
 WRAPPER     := $(BUNDLE)/sstp-vpn
 
+# The built SoftEther client binaries (vpnclient/vpncmd/hamcore.se2), bundled so
+# the SoftEther protocol works. Build them once with the package's fetch script.
+SOFTETHER_SRC ?= ../Projects/softether_client/softether
+
 .DEFAULT_GOAL := help
 
 .PHONY: help
@@ -62,6 +66,21 @@ launch: ## Launch the privileged wrapper (needs a prior 'make priv')
 .PHONY: dev
 dev: ## Plain `flutter run` on Linux (fast; no tunnel privilege, so connect won't work)
 	flutter run -d linux --target $(TARGET)
+
+SOFTETHER_PKG := $(dir $(SOFTETHER_SRC))
+
+.PHONY: softether
+softether: build ## Build + bundle the SoftEther binaries and privileged helper (enables the SoftEther protocol)
+	@test -f "$(SOFTETHER_SRC)/vpnclient" || { echo "error: $(SOFTETHER_SRC)/vpnclient not found — run $(SOFTETHER_PKG)tool/fetch_softether.sh first." >&2; exit 1; }
+	@echo "==> compiling the privileged helper"
+	cd "$(SOFTETHER_PKG)" && dart compile exe bin/softether_helper.dart -o softether/softether-helper
+	mkdir -p "$(BUNDLE)/softether"
+	cp "$(SOFTETHER_SRC)/vpnclient" "$(SOFTETHER_SRC)/vpncmd" \
+	   "$(SOFTETHER_SRC)/hamcore.se2" "$(SOFTETHER_SRC)/softether-helper" "$(BUNDLE)/softether/"
+	@echo "==> SoftEther staged in $(BUNDLE)/softether (binaries + helper)"
+	@echo "    Run the app NORMALLY (unprivileged) — the helper elevates via pkexec:"
+	@echo "        $(APP)"
+	@echo "    Then Settings -> Protocol = SoftEther -> connect (polkit will prompt)."
 
 .PHONY: analyze
 analyze: ## Static analysis (matches CI)

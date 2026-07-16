@@ -2,6 +2,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sstp_shield/domain/entities/subscription.dart';
+import 'package:sstp_shield/domain/entities/tunnel_protocol.dart';
 import 'package:sstp_shield/domain/failures/failures.dart';
 import 'package:sstp_shield/domain/usecases/fetch_servers.dart';
 import 'package:sstp_shield/domain/usecases/import_activation.dart';
@@ -39,6 +40,8 @@ void main() {
     when(() => settings.getReconnectRetryIntervalSeconds())
         .thenAnswer((_) async => 5);
     when(() => settings.getServersFlatView()).thenAnswer((_) async => false);
+    when(() => settings.getProtocol())
+        .thenAnswer((_) async => TunnelProtocol.sstp);
     when(() => serverRepo.loadBookmarks()).thenAnswer((_) async => []);
     when(() => serverRepo.loadRecents()).thenAnswer((_) async => []);
     when(() => serverRepo.loadCached()).thenAnswer((_) async => []);
@@ -48,6 +51,7 @@ void main() {
     when(() => serverRepo.saveRecents(any())).thenAnswer((_) async {});
     when(() => serverRepo.saveWithPing(any())).thenAnswer((_) async {});
     when(() => serverRepo.cachedServers).thenReturn([]);
+    when(() => settings.saveProtocol(any())).thenAnswer((_) async {});
   });
 
   VpnBloc build() => VpnBloc(
@@ -154,6 +158,35 @@ void main() {
       verify: (bloc) {
         expect(bloc.state.bookmarkedServers, [a]);
         verify(() => serverRepo.saveBookmarks([a])).called(1);
+      },
+    );
+  });
+
+  group('protocol', () {
+    blocTest<VpnBloc, VpnState>(
+      'selecting an available protocol persists it',
+      build: build,
+      act: (bloc) => bloc.add(const ProtocolChanged(TunnelProtocol.sstp)),
+      verify: (_) =>
+          verify(() => settings.saveProtocol(TunnelProtocol.sstp)).called(1),
+    );
+
+    // SoftEther availability is platform-dependent (Linux desktop). Tests and CI
+    // run on Linux, so it is available there and selecting it persists; the
+    // "ignore unavailable" guard is exercised implicitly on platforms where it
+    // is not.
+    blocTest<VpnBloc, VpnState>(
+      'selecting SoftEther persists it where the platform supports it',
+      build: build,
+      act: (bloc) => bloc.add(const ProtocolChanged(TunnelProtocol.softEther)),
+      verify: (bloc) {
+        if (TunnelProtocol.softEther.available) {
+          expect(bloc.state.protocol, TunnelProtocol.softEther);
+          verify(() => settings.saveProtocol(TunnelProtocol.softEther)).called(1);
+        } else {
+          expect(bloc.state.protocol, TunnelProtocol.sstp);
+          verifyNever(() => settings.saveProtocol(TunnelProtocol.softEther));
+        }
       },
     );
   });

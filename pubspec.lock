@@ -717,6 +717,15 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  softether_client:
+    dependency: transitive
+    description:
+      path: "."
+      ref: main
+      resolved-ref: f734414355e812133c3a17155f2c4680c78522ba
+      url: "https://github.com/atasanbratan/softether_client.git"
+    source: git
+    version: "0.1.0"
   source_map_stack_trace:
     dependency: transitive
     description:
@@ -763,7 +772,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: ebe8bbec8b5062fc1f869e5b05cadc50559f7382
+      resolved-ref: d4f3da028c41db06ec1975c2b8a3988ed25da361
       url: "https://github.com/atasanbratan/sstp_vpn_plugin.git"
     source: git
     version: "0.1.0"

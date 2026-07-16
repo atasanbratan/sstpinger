@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../domain/entities/ping_progress.dart';
+import '../../../domain/entities/tunnel_protocol.dart';
 import '../../../domain/entities/vpn_server.dart';
 import '../../../domain/failures/failures.dart';
 import '../../../domain/repositories/settings_repository.dart';
@@ -76,6 +77,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<ReconnectRetryIntervalChanged>(_onReconnectInterval);
     on<ReconnectSettingsPersistRequested>(_onPersistReconnect);
     on<ServersViewModeChanged>(_onServersViewMode);
+    on<ProtocolChanged>(_onProtocol);
     on<UsernameChanged>(_onUsername);
     on<ActivationCodeSubmitted>(_onActivation);
     on<FreeTrialRequested>(_onTrial);
@@ -91,6 +93,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     final retryCount = await _settings.getReconnectRetryCount();
     final retryInterval = await _settings.getReconnectRetryIntervalSeconds();
     final flatView = await _settings.getServersFlatView();
+    final protocol = await _settings.getProtocol();
     final bookmarks = await _serverRepo.loadBookmarks();
     final recents = await _serverRepo.loadRecents();
     final cached = await _loadCached();
@@ -106,6 +109,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         reconnectRetryCount: retryCount,
         reconnectRetryIntervalSeconds: retryInterval,
         serversFlatView: flatView,
+        protocol: protocol,
         bookmarkedServers: bookmarks,
         recentServers: recents,
         servers: cached.isNotEmpty && state.servers.isEmpty
@@ -381,6 +385,17 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
   ) async {
     emit(state.copyWith(serversFlatView: event.flat));
     await _settings.saveServersFlatView(event.flat);
+  }
+
+  Future<void> _onProtocol(
+    ProtocolChanged event,
+    Emitter<VpnState> emit,
+  ) async {
+    // Only implemented protocols can be selected; ignore the rest (the picker
+    // shows them disabled, this guards against a stray event).
+    if (!event.protocol.available) return;
+    emit(state.copyWith(protocol: event.protocol));
+    await _settings.saveProtocol(event.protocol);
   }
 
   Future<void> _onUsername(UsernameChanged event, Emitter<VpnState> emit) async {

@@ -64,6 +64,9 @@ class VpnState extends Equatable {
   /// Servers-tab layout: true = flat, ping-sorted list; false = grouped by country.
   final bool serversFlatView;
 
+  /// The selected tunnel protocol (only SSTP connects today).
+  final TunnelProtocol protocol;
+
   final bool isImportingActivation;
   final bool isStartingTrial;
   final bool isSubmittingSubscription;
@@ -94,6 +97,7 @@ class VpnState extends Equatable {
     this.reconnectRetryCount = 3,
     this.reconnectRetryIntervalSeconds = 5,
     this.serversFlatView = false,
+    this.protocol = TunnelProtocol.sstp,
     this.isImportingActivation = false,
     this.isStartingTrial = false,
     this.isSubmittingSubscription = false,
@@ -148,6 +152,7 @@ class VpnState extends Equatable {
     int? reconnectRetryCount,
     int? reconnectRetryIntervalSeconds,
     bool? serversFlatView,
+    TunnelProtocol? protocol,
     bool? isImportingActivation,
     bool? isStartingTrial,
     bool? isSubmittingSubscription,
@@ -181,6 +186,7 @@ class VpnState extends Equatable {
       reconnectRetryIntervalSeconds:
           reconnectRetryIntervalSeconds ?? this.reconnectRetryIntervalSeconds,
       serversFlatView: serversFlatView ?? this.serversFlatView,
+      protocol: protocol ?? this.protocol,
       isImportingActivation:
           isImportingActivation ?? this.isImportingActivation,
       isStartingTrial: isStartingTrial ?? this.isStartingTrial,
@@ -216,6 +222,7 @@ class VpnState extends Equatable {
     reconnectRetryCount,
     reconnectRetryIntervalSeconds,
     serversFlatView,
+    protocol,
     isImportingActivation,
     isStartingTrial,
     isSubmittingSubscription,

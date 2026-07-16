@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/entities/tunnel_protocol.dart';
 import '../bloc/vpn/vpn_bloc.dart';
 import '../theme/app_colors.dart';
 
@@ -110,6 +111,97 @@ class ProfileSettingsSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Protocol selector: SSTP is active; SoftEther is shown disabled with a
+  /// "SOON" badge (a placeholder until the protocol is implemented).
+  Widget _buildProtocolCard(BuildContext context, VpnState vpn) {
+    final bloc = context.read<VpnBloc>();
+    return Card(
+      color: AppColors.surfaceRaised,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Expanded(child: _protocolChip(bloc, vpn, TunnelProtocol.sstp)),
+            const SizedBox(width: 10),
+            Expanded(child: _protocolChip(bloc, vpn, TunnelProtocol.softEther)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _protocolChip(VpnBloc bloc, VpnState vpn, TunnelProtocol protocol) {
+    final selected = vpn.protocol == protocol;
+    final enabled = protocol.available;
+
+    final chip = Material(
+      color: selected ? AppColors.accent : AppColors.inputBackground,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: enabled && !selected
+            ? () => bloc.add(ProtocolChanged(protocol))
+            : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppColors.accent : AppColors.divider,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.shield_outlined,
+                size: 16,
+                color: selected ? AppColors.surfaceDeep : AppColors.textMuted,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  protocol.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: selected
+                        ? AppColors.surfaceDeep
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              if (!enabled) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDeep,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'SOON',
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return enabled ? chip : Opacity(opacity: 0.55, child: chip);
   }
 
   Widget _buildPingSettingsCard(BuildContext context, VpnState vpn) {
@@ -470,6 +562,17 @@ class ProfileSettingsSheet extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 20),
+                const Text(
+                  'PROTOCOL',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white38,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildProtocolCard(context, vpn),
                 const SizedBox(height: 20),
                 const Text(
                   'PING SETTINGS',

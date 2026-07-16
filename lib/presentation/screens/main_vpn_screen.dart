@@ -121,6 +121,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           username: username,
           password: password,
           label: vpn.useCustomConfig ? host : vpn.selectedServer!.hostname,
+          protocol: vpn.protocol,
         ),
       ),
     );

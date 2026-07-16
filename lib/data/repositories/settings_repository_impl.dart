@@ -1,3 +1,4 @@
+import '../../domain/entities/tunnel_protocol.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../datasources/preferences_data_source.dart';
 
@@ -41,4 +42,11 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<void> saveServersFlatView(bool flat) =>
       _prefs.saveServersFlatView(flat);
+
+  @override
+  Future<TunnelProtocol> getProtocol() => _prefs.getProtocol();
+
+  @override
+  Future<void> saveProtocol(TunnelProtocol protocol) =>
+      _prefs.saveProtocol(protocol);
 }

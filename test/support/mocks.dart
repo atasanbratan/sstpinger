@@ -1,5 +1,6 @@
 import 'package:mocktail/mocktail.dart';
 import 'package:sstp_shield/domain/entities/tunnel_config.dart';
+import 'package:sstp_shield/domain/entities/tunnel_protocol.dart';
 import 'package:sstp_shield/domain/entities/vpn_server.dart';
 import 'package:sstp_shield/domain/repositories/ping_service.dart';
 import 'package:sstp_shield/domain/repositories/settings_repository.dart';
@@ -54,4 +55,5 @@ void registerFallbacks() {
   );
   registerFallbackValue(<VpnServer>[]);
   registerFallbackValue(server());
+  registerFallbackValue(TunnelProtocol.sstp);
 }
