@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -113,6 +115,9 @@ class ProfileSettingsSheet extends StatelessWidget {
       ),
     );
   }
+
+  /// SoftEther is desktop-only, so the protocol picker is too.
+  bool get _isDesktop => !Platform.isAndroid && !Platform.isIOS;
 
   /// Shows where the diagnostic log is written, with a copy button — the file to
   /// send when a connection fails (a desktop GUI has no console to read).
@@ -600,17 +605,22 @@ class ProfileSettingsSheet extends StatelessWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 20),
-                const Text(
-                  'PROTOCOL',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white38,
+                // Desktop only: SoftEther has no Android/iOS client (and no
+                // non-root way to get one), so mobile has a single protocol and
+                // the picker would be a control with nothing to choose.
+                if (_isDesktop) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'PROTOCOL',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white38,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                _buildProtocolCard(context, vpn),
+                  const SizedBox(height: 8),
+                  _buildProtocolCard(context, vpn),
+                ],
                 _buildLogPathRow(context),
                 const SizedBox(height: 20),
                 const Text(

@@ -46,7 +46,25 @@ help: ## Show this help
 	@echo "  (append VARIANT=foreign to build/run the foreign variant)"
 
 .PHONY: run
-run: build priv launch ## Full pipeline: build + grant privilege + launch
+run: build stage-softether priv launch ## Full pipeline: build + bundle SoftEther + grant privilege + launch
+
+# Staged for `run` too, so the SoftEther protocol works from a local build the
+# same as from a release download. Skipped (with a note) rather than failing when
+# the client hasn't been fetched — SSTP alone doesn't need it.
+.PHONY: stage-softether
+stage-softether:
+	@if [ -f "$(SOFTETHER_SRC)/vpnclient" ]; then \
+	  (cd "$(SOFTETHER_PKG)" && dart compile exe bin/softether_helper.dart \
+	      -o softether/softether-helper >/dev/null) && \
+	  mkdir -p "$(BUNDLE)/softether" && \
+	  cp "$(SOFTETHER_SRC)/vpnclient" "$(SOFTETHER_SRC)/vpncmd" \
+	     "$(SOFTETHER_SRC)/hamcore.se2" "$(SOFTETHER_SRC)/softether-helper" \
+	     "$(BUNDLE)/softether/" && \
+	  echo "==> SoftEther staged in $(BUNDLE)/softether"; \
+	else \
+	  echo "==> SoftEther client not built - SSTP only."; \
+	  echo "    Run $(SOFTETHER_PKG)tool/fetch_softether.sh to enable it."; \
+	fi
 
 .PHONY: build
 build: ## Build the release Linux bundle

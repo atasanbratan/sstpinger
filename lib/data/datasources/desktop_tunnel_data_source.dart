@@ -135,15 +135,33 @@ class DesktopTunnelDataSource implements TunnelDataSource {
     final binDir = _softetherBinDir;
     logLine('[softether] binDir=$binDir exists=${Directory(binDir).existsSync()}');
 
-    // On Windows the client must be installed by its own installer (it registers
-    // the adapter driver). Say so plainly rather than failing deep inside vpncmd.
-    if (Platform.isWindows && !File('$binDir\\vpncmd.exe').existsSync()) {
-      _onError?.call(
-        'SoftEther on Windows needs the official SoftEther VPN Client installed '
-        '(it registers the virtual adapter driver). Install it from '
-        'softether-download.com, then try again — or use the SSTP protocol.',
-      );
-      return;
+    // Fail with the real reason before we get deep into vpncmd/pkexec, where a
+    // missing file surfaces as a misleading "needs root".
+    if (Platform.isWindows) {
+      // The client must come from its own installer (it registers the adapter
+      // driver); a bundled copy cannot.
+      if (!File('$binDir\\vpncmd.exe').existsSync()) {
+        _onError?.call(
+          'SoftEther on Windows needs the official SoftEther VPN Client '
+          'installed (it registers the virtual adapter driver). Install it from '
+          'softether-download.com, then try again — or use the SSTP protocol.',
+        );
+        return;
+      }
+    } else {
+      // Linux ships its own client + pkexec helper next to the app. If they are
+      // absent this is a packaging problem, not a privilege one — pkexec would
+      // just exit 127 and we would wrongly blame root.
+      final helper = '$binDir${Platform.pathSeparator}softether-helper';
+      if (!File(helper).existsSync()) {
+        logLine('[softether] helper missing at $helper');
+        _onError?.call(
+          'The SoftEther client is not bundled with this build. Use the release '
+          'download (it includes it), or run "make softether" for a local build '
+          '— or use the SSTP protocol.',
+        );
+        return;
+      }
     }
     final client = _softether ??= SoftEtherConnection.forPlatform(
       binDir: binDir,
