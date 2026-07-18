@@ -23,16 +23,27 @@ plugin. On **desktop** it runs on our own pure-Dart SSTP + PPP stack —
 on Linux and Wintun on Windows. The handshake and the packet loop run in a dedicated
 isolate, off the UI thread.
 
+**Desktop also speaks SoftEther.** A protocol picker (Settings → Protocol) lets you
+choose SSTP or SoftEther's SSL-VPN, which reaches the same VPN Gate relays and often
+connects where SSTP won't. SoftEther is driven through
+[`softether_client`](https://github.com/atasanbratan/softether_client), a pure-Dart
+wrapper around the official SoftEther `vpnclient`/`vpncmd`. On **Linux** the client is
+bundled; on **Windows** you must install the official
+[SoftEther VPN Client](https://www.softether-download.com/) yourself (its signed adapter
+driver can only be staged by SoftEther's own installer) — the app detects and drives it.
+Mobile is SSTP-only.
+
 ## Platform support
 
 | Platform | Tunnel | Status |
 |---|---|---|
 | Android | `sstp_flutter` (VpnService) | Supported — signed APKs in [Releases](https://github.com/atasanbratan/sstp_shield/releases) |
 | iOS | `sstp_flutter` (NEVPNManager) | Builds from the same codebase; not distributed here, least exercised |
-| Linux (x64, GTK) | `sstp_vpn_plugin` (`/dev/net/tun`) | Supported — needs a one-time capability setup |
-| Windows (10/11, x64) | `sstp_vpn_plugin` (Wintun) | Supported — requests Administrator at launch |
+| Linux (x64, GTK) | `sstp_vpn_plugin` (`/dev/net/tun`) · **SoftEther** (bundled) | Supported — needs a one-time capability setup |
+| Windows (10/11, x64) | `sstp_vpn_plugin` (Wintun) · **SoftEther** (official client) | Supported — requests Administrator at launch |
 
-macOS is deliberately **not** supported: `sstp_vpn_plugin` excludes its utun backend,
+On desktop the tunnel protocol (SSTP or SoftEther) is chosen in Settings; mobile is
+SSTP-only. macOS is deliberately **not** supported: `sstp_vpn_plugin` excludes its utun backend,
 because that backend has never been proven against a live server.
 
 ## Features
@@ -44,6 +55,10 @@ because that backend has never been proven against a live server.
   concurrent batches, with a live progress counter.
 - **Bookmarks** — pin nodes; they survive a server refetch even if the backend drops them.
 - **Custom nodes** — connect to an arbitrary host, port and credentials.
+- **Protocol choice (desktop)** — SSTP or SoftEther, per your network.
+- **Auto-reconnection** — configurable retry count and interval on an unexpected drop.
+- **SoftEther transport tuning (desktop)** — toggle NAT-T (direct TCP vs UDP
+  acceleration) and set how long to wait before the app retries the other transport.
 - **Live tunnel stats** — connection duration, and on mobile, throughput counters.
 
 ## Install
@@ -56,7 +71,9 @@ unknown sources.
 
 **Windows** — unzip `sstp-shield-windows-x64.zip` and run `sstp_shield.exe`. It requests
 Administrator at launch (a UAC prompt): creating the Wintun adapter and changing routes
-both require it. Keep `wintun.dll` beside the `.exe`.
+both require it. Keep `wintun.dll` beside the `.exe`. To use the **SoftEther** protocol,
+first install the official [SoftEther VPN Client](https://www.softether-download.com/) —
+the app detects it automatically. SSTP needs no extra software.
 
 **Linux** — creating a TUN device needs `CAP_NET_ADMIN`, **not** root. Do **not** run it
 with `sudo`. Once, with `gcc`, `libcap` and `patchelf` installed:
@@ -169,6 +186,8 @@ ping-and-sort, bookmarks, activation import, and tunnel status mapping.
   this for anonymity yet.
 - **Desktop is not a turnkey install.** Linux needs the one-time capability setup;
   Windows shows a UAC prompt on every launch. There is no installer.
+- **SoftEther is desktop-only**, and on Windows it needs the official SoftEther VPN
+  Client installed separately — its signed adapter driver can't be bundled.
 - **Desktop is full-tunnel only** — split routing is not exposed in the UI.
 - **Auth:** CHAP / MSCHAPv2 only.
 - Server certificates are not verified by default, because the public nodes are
@@ -180,6 +199,7 @@ ping-and-sort, bookmarks, activation import, and tunnel status mapping.
 |---|---|
 | [`sstp_client`](https://github.com/atasanbratan/sstp_client) | Pure-Dart SSTP + PPP protocol stack and tunnel backends |
 | [`sstp_vpn_plugin`](https://github.com/atasanbratan/sstp_vpn_plugin) | Flutter plugin wrapping it for Linux + Windows |
+| [`softether_client`](https://github.com/atasanbratan/softether_client) | Pure-Dart driver for the official SoftEther VPN Client (desktop) |
 
 ## License
 

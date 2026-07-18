@@ -4,10 +4,19 @@ Guidance for working in this repository. Read this before writing code.
 
 ## What this app is
 
-**SSTP Shield** is a Flutter VPN client. It fetches a list of SSTP servers from a
-backend (a Google Apps Script endpoint), lets the user ping/sort them, and
-connects through the `sstp_flutter` plugin. Auth is an activation-code /
-username model with a subscription expiry.
+**SSTP Shield** is a Flutter VPN client. It fetches a server list from a backend
+(a Google Apps Script endpoint), lets the user ping/sort them, and brings up a
+system VPN tunnel. Auth is an activation-code / username model with a
+subscription expiry.
+
+**Tunnel backends.** Mobile uses the `sstp_flutter` plugin (SSTP only). Desktop
+(Linux/Windows) uses `sstp_vpn_plugin` for SSTP and `softether_client` for
+SoftEther, chosen by a protocol picker in the settings sheet; the choice lives on
+`TunnelConfig.protocol` and is honoured in `DesktopTunnelDataSource`. SoftEther is
+desktop-only — bundled on Linux (pkexec helper), and on Windows it drives the
+user's officially-installed SoftEther VPN Client (`findWindowsInstall`). SoftEther
+transport (NAT-T on/off + retry wait) is user-configurable and rides on
+`TunnelConfig` too.
 
 ### Product variants (one codebase, three entry points)
 
