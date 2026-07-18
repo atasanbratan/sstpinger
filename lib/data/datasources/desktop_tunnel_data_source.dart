@@ -180,6 +180,8 @@ class DesktopTunnelDataSource implements TunnelDataSource {
         port: config.port,
         username: config.username,
         password: config.password,
+        disableNatT: config.softEtherDisableNatT,
+        retryWaitSeconds: config.softEtherNatTRetryWaitSeconds,
       );
     } on SoftEtherException catch (e) {
       logLine('[softether] connect threw (${e.status.name}): ${e.message}');

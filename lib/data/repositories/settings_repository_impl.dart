@@ -37,6 +37,22 @@ class SettingsRepositoryImpl implements SettingsRepository {
   );
 
   @override
+  Future<bool> getSoftEtherDisableNatT() => _prefs.getSoftEtherDisableNatT();
+
+  @override
+  Future<int> getSoftEtherNatTRetryWaitSeconds() =>
+      _prefs.getSoftEtherNatTRetryWaitSec();
+
+  @override
+  Future<void> saveSoftEtherNatTSettings({
+    required bool disableNatT,
+    required int retryWaitSeconds,
+  }) => _prefs.saveSoftEtherNatTSettings(
+    disableNatT: disableNatT,
+    retryWaitSec: retryWaitSeconds,
+  );
+
+  @override
   Future<bool> getServersFlatView() => _prefs.getServersFlatView();
 
   @override

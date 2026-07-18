@@ -76,6 +76,9 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<ReconnectRetryCountChanged>(_onReconnectCount);
     on<ReconnectRetryIntervalChanged>(_onReconnectInterval);
     on<ReconnectSettingsPersistRequested>(_onPersistReconnect);
+    on<SoftEtherDisableNatTChanged>(_onSoftEtherDisableNatT);
+    on<SoftEtherNatTRetryWaitChanged>(_onSoftEtherNatTRetryWait);
+    on<SoftEtherNatTSettingsPersistRequested>(_onPersistSoftEtherNatT);
     on<ServersViewModeChanged>(_onServersViewMode);
     on<ProtocolChanged>(_onProtocol);
     on<UsernameChanged>(_onUsername);
@@ -92,6 +95,8 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     final batch = await _settings.getPingBatchSize();
     final retryCount = await _settings.getReconnectRetryCount();
     final retryInterval = await _settings.getReconnectRetryIntervalSeconds();
+    final disableNatT = await _settings.getSoftEtherDisableNatT();
+    final natTRetryWait = await _settings.getSoftEtherNatTRetryWaitSeconds();
     final flatView = await _settings.getServersFlatView();
     final protocol = await _settings.getProtocol();
     final bookmarks = await _serverRepo.loadBookmarks();
@@ -108,6 +113,8 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         pingBatchSize: batch,
         reconnectRetryCount: retryCount,
         reconnectRetryIntervalSeconds: retryInterval,
+        softEtherDisableNatT: disableNatT,
+        softEtherNatTRetryWaitSeconds: natTRetryWait,
         serversFlatView: flatView,
         protocol: protocol,
         bookmarkedServers: bookmarks,
@@ -377,6 +384,26 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
   ) => _settings.saveReconnectSettings(
     retryCount: state.reconnectRetryCount,
     retryIntervalSeconds: state.reconnectRetryIntervalSeconds,
+  );
+
+  void _onSoftEtherDisableNatT(
+    SoftEtherDisableNatTChanged event,
+    Emitter<VpnState> emit,
+  ) => emit(state.copyWith(softEtherDisableNatT: event.disable));
+
+  void _onSoftEtherNatTRetryWait(
+    SoftEtherNatTRetryWaitChanged event,
+    Emitter<VpnState> emit,
+  ) => emit(state.copyWith(
+    softEtherNatTRetryWaitSeconds: event.seconds.clamp(5, 60),
+  ));
+
+  Future<void> _onPersistSoftEtherNatT(
+    SoftEtherNatTSettingsPersistRequested event,
+    Emitter<VpnState> emit,
+  ) => _settings.saveSoftEtherNatTSettings(
+    disableNatT: state.softEtherDisableNatT,
+    retryWaitSeconds: state.softEtherNatTRetryWaitSeconds,
   );
 
   Future<void> _onServersViewMode(

@@ -28,6 +28,9 @@ class PreferencesDataSource {
       'reconnect_retry_interval_sec';
   static const String _keyServersFlatView = 'servers_flat_view';
   static const String _keyProtocol = 'tunnel_protocol';
+  static const String _keySoftEtherDisableNatT = 'softether_disable_natt';
+  static const String _keySoftEtherNatTRetryWaitSec =
+      'softether_natt_retry_wait_sec';
 
   static const int defaultPingTimeoutMs = 1500;
   static const int defaultPingBatchSize = 25;
@@ -36,6 +39,12 @@ class PreferencesDataSource {
   // seconds apart. A retry count of 0 disables auto-reconnection.
   static const int defaultReconnectRetryCount = 3;
   static const int defaultReconnectRetryIntervalSec = 5;
+
+  // SoftEther transport defaults: try NAT-T disabled (direct TCP) first, as it
+  // completes on the widest range of VPN Gate relays, waiting this long before
+  // falling back to the other transport.
+  static const bool defaultSoftEtherDisableNatT = true;
+  static const int defaultSoftEtherNatTRetryWaitSec = 15;
 
   Future<String> getUsername() async {
     final prefs = await SharedPreferences.getInstance();
@@ -134,6 +143,27 @@ class PreferencesDataSource {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyReconnectRetryCount, retryCount);
     await prefs.setInt(_keyReconnectRetryIntervalSec, retryIntervalSec);
+  }
+
+  Future<bool> getSoftEtherDisableNatT() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keySoftEtherDisableNatT) ??
+        defaultSoftEtherDisableNatT;
+  }
+
+  Future<int> getSoftEtherNatTRetryWaitSec() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keySoftEtherNatTRetryWaitSec) ??
+        defaultSoftEtherNatTRetryWaitSec;
+  }
+
+  Future<void> saveSoftEtherNatTSettings({
+    required bool disableNatT,
+    required int retryWaitSec,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keySoftEtherDisableNatT, disableNatT);
+    await prefs.setInt(_keySoftEtherNatTRetryWaitSec, retryWaitSec);
   }
 
   /// Servers-tab layout: true = flat list, false = grouped by country.

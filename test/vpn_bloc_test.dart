@@ -39,6 +39,10 @@ void main() {
     when(() => settings.getReconnectRetryCount()).thenAnswer((_) async => 3);
     when(() => settings.getReconnectRetryIntervalSeconds())
         .thenAnswer((_) async => 5);
+    when(() => settings.getSoftEtherDisableNatT())
+        .thenAnswer((_) async => true);
+    when(() => settings.getSoftEtherNatTRetryWaitSeconds())
+        .thenAnswer((_) async => 15);
     when(() => settings.getServersFlatView()).thenAnswer((_) async => false);
     when(() => settings.getProtocol())
         .thenAnswer((_) async => TunnelProtocol.sstp);

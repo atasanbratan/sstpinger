@@ -20,6 +20,17 @@ abstract class SettingsRepository {
     required int retryIntervalSeconds,
   });
 
+  /// SoftEther transport: whether to try NAT-T disabled (direct TCP) first.
+  Future<bool> getSoftEtherDisableNatT();
+
+  /// How long to wait for a SoftEther session before switching transport.
+  Future<int> getSoftEtherNatTRetryWaitSeconds();
+
+  Future<void> saveSoftEtherNatTSettings({
+    required bool disableNatT,
+    required int retryWaitSeconds,
+  });
+
   /// Servers-tab layout: true = flat list, false = grouped by country.
   Future<bool> getServersFlatView();
 

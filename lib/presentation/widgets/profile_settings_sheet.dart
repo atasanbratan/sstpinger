@@ -411,6 +411,83 @@ class ProfileSettingsSheet extends StatelessWidget {
     );
   }
 
+  /// SoftEther transport: which mode to try first (NAT-T disabled = direct TCP)
+  /// and how long to wait before falling back to the other. VPN Gate relays are
+  /// split on which one works, so the app always tries both — this just tunes
+  /// the order and patience.
+  Widget _buildSoftEtherNatTCard(BuildContext context, VpnState vpn) {
+    final wait = vpn.softEtherNatTRetryWaitSeconds.clamp(5, 60);
+    final bloc = context.read<VpnBloc>();
+
+    return Card(
+      color: AppColors.surfaceRaised,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.lan_rounded, color: AppColors.accent),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Disable NAT-T (direct TCP first)',
+                    style: TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                ),
+                Switch(
+                  value: vpn.softEtherDisableNatT,
+                  activeThumbColor: AppColors.accent,
+                  onChanged: (val) {
+                    bloc.add(SoftEtherDisableNatTChanged(val));
+                    bloc.add(const SoftEtherNatTSettingsPersistRequested());
+                  },
+                ),
+              ],
+            ),
+            const Divider(color: Colors.white10, height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.hourglass_bottom_rounded,
+                  color: AppColors.accentSecondary,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Wait before trying the other',
+                    style: TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                ),
+                Text(
+                  '${wait}s',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accentSecondary,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: wait.toDouble(),
+              min: 5,
+              max: 60,
+              divisions: 55,
+              activeColor: AppColors.accentSecondary,
+              label: '${wait}s',
+              onChanged: (v) =>
+                  bloc.add(SoftEtherNatTRetryWaitChanged(v.round())),
+              onChangeEnd: (_) =>
+                  bloc.add(const SoftEtherNatTSettingsPersistRequested()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<VpnBloc, VpnState>(
@@ -620,6 +697,17 @@ class ProfileSettingsSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   _buildProtocolCard(context, vpn),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'SOFTETHER TRANSPORT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white38,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildSoftEtherNatTCard(context, vpn),
                 ],
                 _buildLogPathRow(context),
                 const SizedBox(height: 20),

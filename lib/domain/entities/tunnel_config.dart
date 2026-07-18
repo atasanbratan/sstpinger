@@ -12,6 +12,8 @@ class TunnelConfig extends Equatable {
     required this.password,
     required this.label,
     this.protocol = TunnelProtocol.sstp,
+    this.softEtherDisableNatT = true,
+    this.softEtherNatTRetryWaitSeconds = 15,
   });
 
   final String host;
@@ -26,6 +28,21 @@ class TunnelConfig extends Equatable {
   /// mobile is SSTP-only, so it is ignored there.
   final TunnelProtocol protocol;
 
+  /// SoftEther only: try NAT-T disabled (direct TCP) before NAT-T.
+  final bool softEtherDisableNatT;
+
+  /// SoftEther only: seconds to wait for a session before switching transport.
+  final int softEtherNatTRetryWaitSeconds;
+
   @override
-  List<Object?> get props => [host, port, username, password, label, protocol];
+  List<Object?> get props => [
+    host,
+    port,
+    username,
+    password,
+    label,
+    protocol,
+    softEtherDisableNatT,
+    softEtherNatTRetryWaitSeconds,
+  ];
 }

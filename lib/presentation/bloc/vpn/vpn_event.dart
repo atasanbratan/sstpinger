@@ -122,6 +122,26 @@ class ReconnectSettingsPersistRequested extends VpnEvent {
   const ReconnectSettingsPersistRequested();
 }
 
+class SoftEtherDisableNatTChanged extends VpnEvent {
+  final bool disable;
+  const SoftEtherDisableNatTChanged(this.disable);
+
+  @override
+  List<Object?> get props => [disable];
+}
+
+class SoftEtherNatTRetryWaitChanged extends VpnEvent {
+  final int seconds;
+  const SoftEtherNatTRetryWaitChanged(this.seconds);
+
+  @override
+  List<Object?> get props => [seconds];
+}
+
+class SoftEtherNatTSettingsPersistRequested extends VpnEvent {
+  const SoftEtherNatTSettingsPersistRequested();
+}
+
 /// Toggles the Servers-tab layout (flat vs grouped) and persists the choice.
 class ServersViewModeChanged extends VpnEvent {
   final bool flat;

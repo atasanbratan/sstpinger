@@ -122,6 +122,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           password: password,
           label: vpn.useCustomConfig ? host : vpn.selectedServer!.hostname,
           protocol: vpn.protocol,
+          softEtherDisableNatT: vpn.softEtherDisableNatT,
+          softEtherNatTRetryWaitSeconds: vpn.softEtherNatTRetryWaitSeconds,
         ),
       ),
     );

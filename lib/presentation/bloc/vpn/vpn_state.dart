@@ -61,6 +61,11 @@ class VpnState extends Equatable {
   final int reconnectRetryCount;
   final int reconnectRetryIntervalSeconds;
 
+  /// SoftEther transport policy (held here so the settings sheet can edit it):
+  /// try NAT-T disabled (direct TCP) first, waiting this long before switching.
+  final bool softEtherDisableNatT;
+  final int softEtherNatTRetryWaitSeconds;
+
   /// Servers-tab layout: true = flat, ping-sorted list; false = grouped by country.
   final bool serversFlatView;
 
@@ -96,6 +101,8 @@ class VpnState extends Equatable {
     this.pingBatchSize = 25,
     this.reconnectRetryCount = 3,
     this.reconnectRetryIntervalSeconds = 5,
+    this.softEtherDisableNatT = true,
+    this.softEtherNatTRetryWaitSeconds = 15,
     this.serversFlatView = false,
     this.protocol = TunnelProtocol.sstp,
     this.isImportingActivation = false,
@@ -151,6 +158,8 @@ class VpnState extends Equatable {
     int? pingBatchSize,
     int? reconnectRetryCount,
     int? reconnectRetryIntervalSeconds,
+    bool? softEtherDisableNatT,
+    int? softEtherNatTRetryWaitSeconds,
     bool? serversFlatView,
     TunnelProtocol? protocol,
     bool? isImportingActivation,
@@ -185,6 +194,9 @@ class VpnState extends Equatable {
       reconnectRetryCount: reconnectRetryCount ?? this.reconnectRetryCount,
       reconnectRetryIntervalSeconds:
           reconnectRetryIntervalSeconds ?? this.reconnectRetryIntervalSeconds,
+      softEtherDisableNatT: softEtherDisableNatT ?? this.softEtherDisableNatT,
+      softEtherNatTRetryWaitSeconds:
+          softEtherNatTRetryWaitSeconds ?? this.softEtherNatTRetryWaitSeconds,
       serversFlatView: serversFlatView ?? this.serversFlatView,
       protocol: protocol ?? this.protocol,
       isImportingActivation:
@@ -221,6 +233,8 @@ class VpnState extends Equatable {
     pingBatchSize,
     reconnectRetryCount,
     reconnectRetryIntervalSeconds,
+    softEtherDisableNatT,
+    softEtherNatTRetryWaitSeconds,
     serversFlatView,
     protocol,
     isImportingActivation,
