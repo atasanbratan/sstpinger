@@ -132,19 +132,22 @@ class DesktopTunnelDataSource implements TunnelDataSource {
 
   Future<void> _connectSoftEther(TunnelConfig config) async {
     _softEtherActive = true;
-    final binDir = _softetherBinDir;
-    logLine('[softether] binDir=$binDir exists=${Directory(binDir).existsSync()}');
 
-    // Fail with the real reason before we get deep into vpncmd/pkexec, where a
-    // missing file surfaces as a misleading "needs root".
+    final String binDir;
     if (Platform.isWindows) {
-      // The client must come from its own installer (it registers the adapter
-      // driver); a bundled copy cannot.
-      if (!File('$binDir\\vpncmd.exe').existsSync()) {
+      // Windows cannot bundle-and-run the client: creating the adapter needs a
+      // signed NDIS driver. Use an existing official install, or install from
+      // our bundle — a silent service install first, the guided installer if
+      // that fails. This may show a UAC prompt (and, on fallback, a wizard).
+      try {
+        binDir = await VpnclientService.ensureWindowsClient(
+          _softetherBundleDir,
+          log: logLine,
+        );
+      } on SoftEtherException catch (e) {
         _onError?.call(
-          'SoftEther on Windows needs the official SoftEther VPN Client '
-          'installed (it registers the virtual adapter driver). Install it from '
-          'softether-download.com, then try again — or use the SSTP protocol.',
+          '${e.message} You can install the official SoftEther VPN Client from '
+          'softether-download.com and try again — or use the SSTP protocol.',
         );
         return;
       }
@@ -152,6 +155,7 @@ class DesktopTunnelDataSource implements TunnelDataSource {
       // Linux ships its own client + pkexec helper next to the app. If they are
       // absent this is a packaging problem, not a privilege one — pkexec would
       // just exit 127 and we would wrongly blame root.
+      binDir = _softetherBinDir;
       final helper = '$binDir${Platform.pathSeparator}softether-helper';
       if (!File(helper).existsSync()) {
         logLine('[softether] helper missing at $helper');
@@ -163,6 +167,8 @@ class DesktopTunnelDataSource implements TunnelDataSource {
         return;
       }
     }
+    logLine('[softether] binDir=$binDir exists=${Directory(binDir).existsSync()}');
+
     final client = _softether ??= SoftEtherConnection.forPlatform(
       binDir: binDir,
       // Linux only; Windows drives the client directly (already elevated).
@@ -209,27 +215,22 @@ class DesktopTunnelDataSource implements TunnelDataSource {
     });
   }
 
-  /// Where the SoftEther client lives.
-  ///
-  /// `SOFTETHER_DIR` always wins. Otherwise the platforms differ: **Linux** uses
-  /// the copy we bundle beside the executable, while **Windows** uses the user's
-  /// officially-installed VPN Client — creating the virtual adapter there needs
-  /// a signed NDIS driver that only the real installer can register, so a
-  /// bundled copy cannot work.
-  String get _softetherBinDir {
+  /// Where our bundled SoftEther payload ships: `<exe>/softether` (overridable
+  /// with `SOFTETHER_DIR`). On **Linux** this is the client we run directly; on
+  /// **Windows** it holds the binaries + official installer that
+  /// [VpnclientService.ensureWindowsClient] uses to self-install when no
+  /// official client is present (creating the adapter needs a signed NDIS
+  /// driver, so we cannot just run a loose copy).
+  String get _softetherBundleDir {
     final env = Platform.environment['SOFTETHER_DIR'];
     if (env != null && env.isNotEmpty) return env;
-    if (Platform.isWindows) {
-      final installed = VpnclientService.findWindowsInstall();
-      if (installed != null) {
-        logLine('[softether] using installed client: $installed');
-        return installed;
-      }
-      logLine('[softether] no SoftEther VPN Client installation found');
-    }
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     return '$exeDir${Platform.pathSeparator}softether';
   }
+
+  /// Linux bin dir for the bundled client. On Windows the bin dir is resolved
+  /// by [VpnclientService.ensureWindowsClient] (it may be an official install).
+  String get _softetherBinDir => _softetherBundleDir;
 
   String _sstpMessageFor(VpnStatus status) => switch (status) {
     VpnStatus.missingPrivilege => Platform.isWindows
