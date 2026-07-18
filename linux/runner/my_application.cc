@@ -7,6 +7,30 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+#include <glib.h>
+#include <limits.h>
+#include <unistd.h>
+
+// Set the window/taskbar icon from the bundled Flutter asset. Flutter's Linux
+// runner ships no launcher icon, so without this the app shows a generic one.
+// The asset lives beside the executable at
+// data/flutter_assets/assets/logo/app_icon.png.
+static void set_window_icon(GtkWindow* window) {
+  char exe_path[PATH_MAX];
+  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+  if (len <= 0) return;
+  exe_path[len] = '\0';
+  g_autofree gchar* exe_dir = g_path_get_dirname(exe_path);
+  g_autofree gchar* icon_path = g_build_filename(
+      exe_dir, "data", "flutter_assets", "assets", "logo", "app_icon.png",
+      nullptr);
+  if (!g_file_test(icon_path, G_FILE_TEST_EXISTS)) return;
+  g_autoptr(GError) error = nullptr;
+  if (!gtk_window_set_icon_from_file(window, icon_path, &error)) {
+    g_warning("Failed to set window icon: %s", error->message);
+  }
+}
+
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
@@ -53,6 +77,7 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  set_window_icon(window);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

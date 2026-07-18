@@ -70,6 +70,13 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  # Desktop: Windows gets a generated app_icon.ico (exe + taskbar). Linux has no
+  # launcher-icon generator here, so its window/taskbar icon is set at runtime in
+  # linux/runner/my_application.cc from the bundled asset (see assets: below).
+  windows:
+    generate: true
+    image_path: "assets/logo/app_icon.png"
+    icon_size: 256
   image_path: "assets/logo/app_icon.png"
   min_sdk_android: 21
   remove_alpha_ios: true
@@ -89,6 +96,8 @@ flutter:
 
   assets:
     - assets/logo/logo.png
+    # Bundled so the Linux runner can set the window/taskbar icon at runtime.
+    - assets/logo/app_icon.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
