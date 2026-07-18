@@ -183,40 +183,18 @@ jobs:
           }
           Write-Host "OK: wintun.dll bundled and exe requests elevation."
 
-      # Two Windows variants:
-      #  * unbundled — for users who already run the official SoftEther VPN
-      #    Client; the app auto-detects and drives it. Smaller download.
-      #  * bundled   — carries the official SoftEther payload (Apache-2.0) under
-      #    softether/, so the app self-installs it (silent service install, else
-      #    the guided installer). Creating the adapter needs a signed NDIS
-      #    driver, so we ship SoftEther's own files, not a home-grown driver.
+      # No SoftEther binaries are bundled on Windows: creating the virtual
+      # adapter installs a signed NDIS driver that only SoftEther's own
+      # installer can stage (a bundled copy fails NicCreate with error 31/32).
+      # The app detects and drives the user's installed VPN Client instead.
 
-      - name: Package (unbundled)
+      - name: Package
         shell: pwsh
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath sstp-shield-windows-x64.zip
-
-      - name: Stage SoftEther payload
-        shell: pwsh
-        run: |
-          $rel = "build/windows/x64/runner/Release"
-          New-Item -ItemType Directory -Force "$rel/softether" | Out-Null
-          $url = "https://github.com/atasanbratan/softether_client/releases/download/softether-win-x64-4.44/softether-win-x64-payload.zip"
-          Invoke-WebRequest -Uri $url -OutFile payload.zip
-          Expand-Archive -Path payload.zip -DestinationPath "$rel/softether" -Force
-          Get-ChildItem "$rel/softether" | Select-Object Name, Length
-          if (-not (Test-Path "$rel/softether/vpnclient.exe")) { throw "SoftEther payload staging failed" }
-          if (-not (Test-Path "$rel/softether/hamcore.se2"))   { throw "SoftEther payload staging failed" }
-
-      - name: Package (bundled)
-        shell: pwsh
-        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath sstp-shield-windows-x64-bundled.zip
-
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: |
-            sstp-shield-windows-x64.zip
-            sstp-shield-windows-x64-bundled.zip
+          path: sstp-shield-windows-x64.zip
           if-no-files-found: error
 
   release:
