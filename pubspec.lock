@@ -722,7 +722,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: d42809c7cd2535f569a17d273e7d0f25cabbdb66
+      resolved-ref: "2b06821f4a0a75971282239bb589aa13ac6e3571"
       url: "https://github.com/atasanbratan/softether_client.git"
     source: git
     version: "0.1.0"
