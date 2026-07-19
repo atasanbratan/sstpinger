@@ -46,7 +46,22 @@ help: ## Show this help
 	@echo "  (append VARIANT=foreign to build/run the foreign variant)"
 
 .PHONY: run
-run: build stage-softether priv launch ## Full pipeline: build + bundle SoftEther + grant privilege + launch
+run: build stage-softether stage-tls-relay priv launch ## Full pipeline: build + bundle SoftEther + TLS relay + grant privilege + launch
+
+# The Go/uTLS TLS relay, bundled beside the app so the SSTP protocol can get past
+# networks that fingerprint-block Dart's TLS ClientHello. Auto-discovered by the
+# app at <bundle>/tls-relay/sstp-tls-relay. Skipped (with a note) when Go is
+# absent — SSTP then falls back to direct TLS.
+.PHONY: stage-tls-relay
+stage-tls-relay:
+	@if command -v go >/dev/null 2>&1; then \
+	  mkdir -p "$(BUNDLE)/tls-relay" && \
+	  go build -C "$(PLUGIN)/go/tls_relay" -trimpath \
+	    -o "$(abspath $(BUNDLE))/tls-relay/sstp-tls-relay" . && \
+	  echo "==> TLS relay staged in $(BUNDLE)/tls-relay"; \
+	else \
+	  echo "==> go not found - SSTP will use direct TLS (no DPI evasion)."; \
+	fi
 
 # Staged for `run` too, so the SoftEther protocol works from a local build the
 # same as from a release download. Skipped (with a note) rather than failing when

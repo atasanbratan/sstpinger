@@ -123,6 +123,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with: { channel: stable }
+      - uses: actions/setup-go@v5
+        with: { go-version: 'stable' }
       - name: Install Linux build deps
         run: |
           sudo apt-get update
@@ -162,6 +164,12 @@ jobs:
           git clone --depth 1 https://github.com/atasanbratan/sstp_vpn_plugin.git /tmp/plugin
           mkdir -p "$STAGE/tool"
           cp /tmp/plugin/tool/setup_privilege.sh /tmp/plugin/tool/ip_wrapper.c "$STAGE/tool/"
+          # Go/uTLS TLS relay: lets the SSTP protocol get past networks that
+          # fingerprint-block Dart's TLS ClientHello. The app auto-discovers it
+          # at <exeDir>/tls-relay/sstp-tls-relay.
+          mkdir -p "$STAGE/tls-relay"
+          go build -C /tmp/plugin/go/tls_relay -trimpath \
+            -o "$(pwd)/$STAGE/tls-relay/sstp-tls-relay" .
           cat > "$STAGE/README-FIRST.txt" <<'EOF'
           SSTP protocol (default): do NOT run with sudo. Grant CAP_NET_ADMIN once
           (needs gcc, libcap, patchelf), then launch the generated sstp-vpn script:
@@ -186,11 +194,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with: { channel: stable }
+      - uses: actions/setup-go@v5
+        with: { go-version: 'stable' }
       - name: Authenticate git for private dependencies
         shell: bash
         run: git config --global url."https://x-access-token:${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
       - run: flutter pub get
       - run: flutter build windows --release --target lib/main.dart
+
+      # Go/uTLS TLS relay, bundled beside the exe so SSTP can get past networks
+      # that fingerprint-block Dart's TLS ClientHello. Auto-discovered by the app
+      # at <exeDir>\tls-relay\sstp-tls-relay.exe.
+      - name: Build & stage TLS relay
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/atasanbratan/sstp_vpn_plugin.git /tmp/plugin
+          OUT="build/windows/x64/runner/Release/tls-relay"
+          mkdir -p "$OUT"
+          go build -C /tmp/plugin/go/tls_relay -trimpath -o "$OUT/sstp-tls-relay.exe" .
+          ls -la "$OUT"
 
       # Guard the two things that fail silently on this platform (both proven in
       # sstp_vpn_plugin's own CI): the bundled Wintun DLL, and the elevation
