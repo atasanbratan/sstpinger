@@ -134,6 +134,14 @@ class FetchServerCountPersistRequested extends VpnEvent {
   const FetchServerCountPersistRequested();
 }
 
+class PingModeChanged extends VpnEvent {
+  final PingMode mode;
+  const PingModeChanged(this.mode);
+
+  @override
+  List<Object?> get props => [mode];
+}
+
 class SoftEtherDisableNatTChanged extends VpnEvent {
   final bool disable;
   const SoftEtherDisableNatTChanged(this.disable);

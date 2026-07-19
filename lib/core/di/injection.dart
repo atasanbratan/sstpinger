@@ -1,5 +1,6 @@
 import '../../data/datasources/preferences_data_source.dart';
 import '../../data/datasources/tcp_ping_service.dart';
+import '../../data/datasources/tls_ping_service.dart';
 import '../../data/datasources/vpn_remote_data_source.dart';
 import '../../data/repositories/settings_repository_impl.dart';
 import '../../data/repositories/subscription_repository_impl.dart';
@@ -68,7 +69,7 @@ class AppDependencies {
     fetchServers: FetchServers(serverRepository),
     refreshServers: RefreshServers(serverRepository),
     loadCached: LoadCachedServers(serverRepository),
-    pingServers: PingServers(pingService),
+    pingServers: PingServers(pingService, const TlsPingService()),
     importActivation: ImportActivation(subscriptionRepository, serverRepository),
     startFreeTrial: StartFreeTrial(subscriptionRepository, serverRepository),
     subscribeWithCrypto:

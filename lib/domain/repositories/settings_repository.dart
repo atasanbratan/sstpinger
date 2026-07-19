@@ -1,3 +1,4 @@
+import '../entities/ping_mode.dart';
 import '../entities/tunnel_protocol.dart';
 
 /// Contract for user-tunable settings (ping probe parameters and the
@@ -24,6 +25,11 @@ abstract class SettingsRepository {
   Future<int> getFetchServerCount();
 
   Future<void> saveFetchServerCount(int count);
+
+  /// Reachability check: fast TCP connect or accurate TLS handshake.
+  Future<PingMode> getPingMode();
+
+  Future<void> savePingMode(PingMode mode);
 
   /// SoftEther transport: whether to try NAT-T disabled (direct TCP) first.
   Future<bool> getSoftEtherDisableNatT();

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../entities/ping_mode.dart';
 import '../entities/ping_progress.dart';
 import '../entities/vpn_server.dart';
 import '../repositories/ping_service.dart';
@@ -9,24 +10,28 @@ import '../repositories/ping_service.dart';
 /// smoothly. The caller decides what to do with the results (sort, persist) once
 /// the stream closes.
 class PingServers {
-  final PingService _pingService;
+  final PingService _tcpPing;
+  final PingService _tlsPing;
 
-  const PingServers(this._pingService);
+  const PingServers(this._tcpPing, this._tlsPing);
 
   /// Pings [servers] with up to [batchSize] concurrent probes, each capped at
-  /// [timeoutMs]. Results fill into the emitted list in the input order.
+  /// [timeoutMs]. [mode] chooses a fast TCP connect or an accurate TLS
+  /// handshake. Results fill into the emitted list in the input order.
   Stream<PingProgress> call(
     List<VpnServer> servers, {
     required int timeoutMs,
     required int batchSize,
+    PingMode mode = PingMode.tcp,
   }) {
+    final pingService = mode == PingMode.tls ? _tlsPing : _tcpPing;
     final controller = StreamController<PingProgress>();
     final results = List<VpnServer>.from(servers);
     final total = results.length;
     var done = 0;
 
     Future<void> probe(int j) async {
-      final ping = await _pingService.ping(results[j], timeoutMs: timeoutMs);
+      final ping = await pingService.ping(results[j], timeoutMs: timeoutMs);
       // Apply the result whatever it is. A null (unreachable) must CLEAR any
       // latency from an earlier sweep — otherwise re-pinging after the route
       // changed would leave the old numbers on screen, which is not what was

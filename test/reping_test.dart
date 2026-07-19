@@ -16,7 +16,7 @@ void main() {
 
   setUp(() {
     ping = MockPingService();
-    pingServers = PingServers(ping);
+    pingServers = PingServers(ping, ping);
   });
 
   Future<List<VpnServer>> sweep(List<VpnServer> servers) async {

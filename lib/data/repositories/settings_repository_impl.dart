@@ -1,3 +1,4 @@
+import '../../domain/entities/ping_mode.dart';
 import '../../domain/entities/tunnel_protocol.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../datasources/preferences_data_source.dart';
@@ -42,6 +43,12 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<void> saveFetchServerCount(int count) =>
       _prefs.setFetchServerCount(count);
+
+  @override
+  Future<PingMode> getPingMode() => _prefs.getPingMode();
+
+  @override
+  Future<void> savePingMode(PingMode mode) => _prefs.savePingMode(mode);
 
   @override
   Future<bool> getSoftEtherDisableNatT() => _prefs.getSoftEtherDisableNatT();

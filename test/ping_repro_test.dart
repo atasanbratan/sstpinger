@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sstp_shield/domain/entities/ping_mode.dart';
 import 'package:sstp_shield/domain/entities/tunnel_protocol.dart';
 import 'package:sstp_shield/data/datasources/tcp_ping_service.dart';
 import 'package:sstp_shield/domain/entities/subscription.dart';
@@ -49,6 +50,7 @@ void main() {
     when(() => settings.getReconnectRetryIntervalSeconds())
         .thenAnswer((_) async => 5);
     when(() => settings.getFetchServerCount()).thenAnswer((_) async => 1000);
+    when(() => settings.getPingMode()).thenAnswer((_) async => PingMode.tcp);
     when(() => settings.getSoftEtherDisableNatT())
         .thenAnswer((_) async => true);
     when(() => settings.getSoftEtherNatTRetryWaitSeconds())
@@ -68,7 +70,8 @@ void main() {
       fetchServers: FetchServers(serverRepo),
       refreshServers: RefreshServers(serverRepo),
       loadCached: LoadCachedServers(serverRepo),
-      pingServers: const PingServers(TcpPingService()), // the REAL one
+      pingServers: const PingServers(
+          TcpPingService(), TcpPingService()), // the REAL one (TCP mode)
       importActivation: ImportActivation(subs, serverRepo),
       startFreeTrial: StartFreeTrial(subs, serverRepo),
       subscribeWithCrypto: SubscribeWithCrypto(subs, serverRepo),

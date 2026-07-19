@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/logging/file_logger.dart';
+import '../../domain/entities/ping_mode.dart';
 import '../../domain/entities/tunnel_protocol.dart';
 import '../bloc/vpn/vpn_bloc.dart';
 import '../theme/app_colors.dart';
@@ -319,6 +320,91 @@ class ProfileSettingsSheet extends StatelessWidget {
               label: '$batch',
               onChanged: (v) => bloc.add(PingBatchSizeChanged(v.round())),
               onChangeEnd: (_) => bloc.add(const PingSettingsPersistRequested()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Reachability check mode. Fast = a TCP connect (open port). Accurate = a TLS
+  /// handshake through the uTLS relay, so the latency reflects what SSTP actually
+  /// needs — a server whose TLS is blocked reads as unreachable, not falsely fast.
+  Widget _buildPingModeCard(BuildContext context, VpnState vpn) {
+    final bloc = context.read<VpnBloc>();
+
+    Widget pill(String label, String sub, PingMode mode, IconData icon) {
+      final active = vpn.pingMode == mode;
+      return Expanded(
+        child: Material(
+          color: active ? AppColors.accent : AppColors.inputBackground,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => bloc.add(PingModeChanged(mode)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: active ? AppColors.accent : AppColors.divider,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(icon,
+                      size: 18,
+                      color: active
+                          ? AppColors.surfaceDeep
+                          : AppColors.textMuted),
+                  const SizedBox(height: 4),
+                  Text(label,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color:
+                            active ? AppColors.surfaceDeep : AppColors.textMuted,
+                      )),
+                  Text(sub,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: active
+                            ? AppColors.surfaceDeep
+                            : AppColors.textFaint,
+                      )),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      color: AppColors.surfaceRaised,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Reachability check',
+                style: TextStyle(fontSize: 13, color: Colors.white)),
+            const SizedBox(height: 3),
+            const Text(
+              'Accurate does a real TLS handshake (via the relay) — slower, but a '
+              'server it marks reachable can actually connect.',
+              style: TextStyle(fontSize: 10.5, color: AppColors.textFaint),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                pill('Fast', 'TCP connect', PingMode.tcp, Icons.bolt_rounded),
+                const SizedBox(width: 10),
+                pill('Accurate', 'TLS handshake', PingMode.tls,
+                    Icons.verified_user_rounded),
+              ],
             ),
           ],
         ),
@@ -771,6 +857,8 @@ class ProfileSettingsSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _buildPingSettingsCard(context, vpn),
+                const SizedBox(height: 10),
+                _buildPingModeCard(context, vpn),
                 const SizedBox(height: 20),
                 const Text(
                   'SERVER LIST',

@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../domain/entities/ping_mode.dart';
 import '../../../domain/entities/ping_progress.dart';
 import '../../../domain/entities/tunnel_protocol.dart';
 import '../../../domain/entities/vpn_server.dart';
@@ -78,6 +79,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<ReconnectSettingsPersistRequested>(_onPersistReconnect);
     on<FetchServerCountChanged>(_onFetchServerCount);
     on<FetchServerCountPersistRequested>(_onPersistFetchServerCount);
+    on<PingModeChanged>(_onPingMode);
     on<SoftEtherDisableNatTChanged>(_onSoftEtherDisableNatT);
     on<SoftEtherNatTRetryWaitChanged>(_onSoftEtherNatTRetryWait);
     on<SoftEtherNatTSettingsPersistRequested>(_onPersistSoftEtherNatT);
@@ -98,6 +100,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     final retryCount = await _settings.getReconnectRetryCount();
     final retryInterval = await _settings.getReconnectRetryIntervalSeconds();
     final fetchCount = await _settings.getFetchServerCount();
+    final pingMode = await _settings.getPingMode();
     final disableNatT = await _settings.getSoftEtherDisableNatT();
     final natTRetryWait = await _settings.getSoftEtherNatTRetryWaitSeconds();
     final flatView = await _settings.getServersFlatView();
@@ -117,6 +120,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         reconnectRetryCount: retryCount,
         reconnectRetryIntervalSeconds: retryInterval,
         fetchServerCount: fetchCount,
+        pingMode: pingMode,
         softEtherDisableNatT: disableNatT,
         softEtherNatTRetryWaitSeconds: natTRetryWait,
         serversFlatView: flatView,
@@ -290,6 +294,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         source,
         timeoutMs: state.pingTimeoutMs,
         batchSize: state.pingBatchSize,
+        mode: state.pingMode,
       ),
       onData: (p) => state.copyWith(
         servers: p.servers,
@@ -331,6 +336,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         targets,
         timeoutMs: state.pingTimeoutMs,
         batchSize: state.pingBatchSize,
+        mode: state.pingMode,
       ),
       onData: (p) => state.copyWith(
         bookmarkedServers: _mergePings(state.bookmarkedServers, p.servers),
@@ -399,6 +405,14 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     FetchServerCountPersistRequested event,
     Emitter<VpnState> emit,
   ) => _settings.saveFetchServerCount(state.fetchServerCount);
+
+  Future<void> _onPingMode(
+    PingModeChanged event,
+    Emitter<VpnState> emit,
+  ) async {
+    emit(state.copyWith(pingMode: event.mode));
+    await _settings.savePingMode(event.mode);
+  }
 
   void _onSoftEtherDisableNatT(
     SoftEtherDisableNatTChanged event,

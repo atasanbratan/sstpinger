@@ -6,6 +6,7 @@ import 'package:advertising_id/advertising_id.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../domain/entities/ping_mode.dart';
 import '../../domain/entities/tunnel_protocol.dart';
 import '../../domain/entities/vpn_server.dart';
 import '../dto/vpn_server_dto.dart';
@@ -28,6 +29,7 @@ class PreferencesDataSource {
       'reconnect_retry_interval_sec';
   static const String _keyServersFlatView = 'servers_flat_view';
   static const String _keyProtocol = 'tunnel_protocol';
+  static const String _keyPingMode = 'ping_mode';
   static const String _keySoftEtherDisableNatT = 'softether_disable_natt';
   static const String _keySoftEtherNatTRetryWaitSec =
       'softether_natt_retry_wait_sec';
@@ -205,6 +207,16 @@ class PreferencesDataSource {
   Future<void> saveProtocol(TunnelProtocol protocol) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyProtocol, protocol.name);
+  }
+
+  Future<PingMode> getPingMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyPingMode) == 'tls' ? PingMode.tls : PingMode.tcp;
+  }
+
+  Future<void> savePingMode(PingMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPingMode, mode.name);
   }
 
   /// Bookmarks are stored as full server records (not just endpoints) so they
