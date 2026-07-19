@@ -25,6 +25,7 @@ void main() {
 
     when(() => prefs.getUsername()).thenAnswer((_) async => 'user');
     when(() => prefs.getOrCreateDeviceId()).thenAnswer((_) async => 'device');
+    when(() => prefs.getFetchServerCount()).thenAnswer((_) async => 1000);
     when(() => prefs.saveServersWithPing(any())).thenAnswer((_) async {});
     when(
       () => prefs.saveSubscriptionInfo(
@@ -48,6 +49,7 @@ void main() {
       () => remote.fetchVpnServers(
         username: any(named: 'username'),
         deviceId: any(named: 'deviceId'),
+        count: any(named: 'count'),
       ),
     ).thenAnswer(
       (_) async => VpnServersResponse(

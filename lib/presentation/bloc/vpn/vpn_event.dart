@@ -122,6 +122,18 @@ class ReconnectSettingsPersistRequested extends VpnEvent {
   const ReconnectSettingsPersistRequested();
 }
 
+class FetchServerCountChanged extends VpnEvent {
+  final int count;
+  const FetchServerCountChanged(this.count);
+
+  @override
+  List<Object?> get props => [count];
+}
+
+class FetchServerCountPersistRequested extends VpnEvent {
+  const FetchServerCountPersistRequested();
+}
+
 class SoftEtherDisableNatTChanged extends VpnEvent {
   final bool disable;
   const SoftEtherDisableNatTChanged(this.disable);

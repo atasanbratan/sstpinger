@@ -39,6 +39,7 @@ void main() {
     when(() => settings.getReconnectRetryCount()).thenAnswer((_) async => 3);
     when(() => settings.getReconnectRetryIntervalSeconds())
         .thenAnswer((_) async => 5);
+    when(() => settings.getFetchServerCount()).thenAnswer((_) async => 1000);
     when(() => settings.getSoftEtherDisableNatT())
         .thenAnswer((_) async => true);
     when(() => settings.getSoftEtherNatTRetryWaitSeconds())

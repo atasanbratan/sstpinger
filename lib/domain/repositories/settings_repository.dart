@@ -20,6 +20,11 @@ abstract class SettingsRepository {
     required int retryIntervalSeconds,
   });
 
+  /// How many servers each fetch requests (clamped to [50, 5000]).
+  Future<int> getFetchServerCount();
+
+  Future<void> saveFetchServerCount(int count);
+
   /// SoftEther transport: whether to try NAT-T disabled (direct TCP) first.
   Future<bool> getSoftEtherDisableNatT();
 

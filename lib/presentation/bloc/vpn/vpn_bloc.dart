@@ -76,6 +76,8 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<ReconnectRetryCountChanged>(_onReconnectCount);
     on<ReconnectRetryIntervalChanged>(_onReconnectInterval);
     on<ReconnectSettingsPersistRequested>(_onPersistReconnect);
+    on<FetchServerCountChanged>(_onFetchServerCount);
+    on<FetchServerCountPersistRequested>(_onPersistFetchServerCount);
     on<SoftEtherDisableNatTChanged>(_onSoftEtherDisableNatT);
     on<SoftEtherNatTRetryWaitChanged>(_onSoftEtherNatTRetryWait);
     on<SoftEtherNatTSettingsPersistRequested>(_onPersistSoftEtherNatT);
@@ -95,6 +97,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     final batch = await _settings.getPingBatchSize();
     final retryCount = await _settings.getReconnectRetryCount();
     final retryInterval = await _settings.getReconnectRetryIntervalSeconds();
+    final fetchCount = await _settings.getFetchServerCount();
     final disableNatT = await _settings.getSoftEtherDisableNatT();
     final natTRetryWait = await _settings.getSoftEtherNatTRetryWaitSeconds();
     final flatView = await _settings.getServersFlatView();
@@ -113,6 +116,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         pingBatchSize: batch,
         reconnectRetryCount: retryCount,
         reconnectRetryIntervalSeconds: retryInterval,
+        fetchServerCount: fetchCount,
         softEtherDisableNatT: disableNatT,
         softEtherNatTRetryWaitSeconds: natTRetryWait,
         serversFlatView: flatView,
@@ -385,6 +389,16 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     retryCount: state.reconnectRetryCount,
     retryIntervalSeconds: state.reconnectRetryIntervalSeconds,
   );
+
+  void _onFetchServerCount(
+    FetchServerCountChanged event,
+    Emitter<VpnState> emit,
+  ) => emit(state.copyWith(fetchServerCount: event.count.clamp(50, 5000)));
+
+  Future<void> _onPersistFetchServerCount(
+    FetchServerCountPersistRequested event,
+    Emitter<VpnState> emit,
+  ) => _settings.saveFetchServerCount(state.fetchServerCount);
 
   void _onSoftEtherDisableNatT(
     SoftEtherDisableNatTChanged event,

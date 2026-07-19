@@ -265,22 +265,54 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     );
   }
 
-  /// Single-column (mobile): hero on top, server list below, all one scroll.
+  /// Single-column (mobile): the hero is pinned at the top and only the server
+  /// list scrolls beneath it, so the power button never scrolls off-screen. The
+  /// hero also shrinks as the list scrolls, giving the list more room. Only the
+  /// hero rebuilds on scroll (via [AnimatedBuilder] on the controller), not the
+  /// list.
   Widget _buildNarrowBody(BuildContext context, VpnState vpn) {
-    return SingleChildScrollView(
-      controller: _scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 18.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          _buildHero(context, vpn),
-          const SizedBox(height: 28),
-          _buildServersSection(context, vpn),
-          const SizedBox(height: 40),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 6),
+          child: AnimatedBuilder(
+            animation: _scrollController,
+            builder: (context, child) {
+              final offset =
+                  _scrollController.hasClients ? _scrollController.offset : 0.0;
+              // Collapse over the first 120px of scroll, down to 78% size.
+              final t = (offset / 120).clamp(0.0, 1.0);
+              final scale = 1.0 - 0.22 * t;
+              return Align(
+                alignment: Alignment.topCenter,
+                heightFactor: scale,
+                child: Transform.scale(
+                  scale: scale,
+                  alignment: Alignment.topCenter,
+                  child: child,
+                ),
+              );
+            },
+            child: _buildHero(context, vpn),
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 18.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 14),
+                _buildServersSection(context, vpn),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

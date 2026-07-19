@@ -61,6 +61,9 @@ class VpnState extends Equatable {
   final int reconnectRetryCount;
   final int reconnectRetryIntervalSeconds;
 
+  /// How many servers each fetch requests from the backend (50–5000).
+  final int fetchServerCount;
+
   /// SoftEther transport policy (held here so the settings sheet can edit it):
   /// try NAT-T disabled (direct TCP) first, waiting this long before switching.
   final bool softEtherDisableNatT;
@@ -101,6 +104,7 @@ class VpnState extends Equatable {
     this.pingBatchSize = 25,
     this.reconnectRetryCount = 3,
     this.reconnectRetryIntervalSeconds = 5,
+    this.fetchServerCount = 1000,
     this.softEtherDisableNatT = true,
     this.softEtherNatTRetryWaitSeconds = 15,
     this.serversFlatView = false,
@@ -158,6 +162,7 @@ class VpnState extends Equatable {
     int? pingBatchSize,
     int? reconnectRetryCount,
     int? reconnectRetryIntervalSeconds,
+    int? fetchServerCount,
     bool? softEtherDisableNatT,
     int? softEtherNatTRetryWaitSeconds,
     bool? serversFlatView,
@@ -194,6 +199,7 @@ class VpnState extends Equatable {
       reconnectRetryCount: reconnectRetryCount ?? this.reconnectRetryCount,
       reconnectRetryIntervalSeconds:
           reconnectRetryIntervalSeconds ?? this.reconnectRetryIntervalSeconds,
+      fetchServerCount: fetchServerCount ?? this.fetchServerCount,
       softEtherDisableNatT: softEtherDisableNatT ?? this.softEtherDisableNatT,
       softEtherNatTRetryWaitSeconds:
           softEtherNatTRetryWaitSeconds ?? this.softEtherNatTRetryWaitSeconds,
@@ -233,6 +239,7 @@ class VpnState extends Equatable {
     pingBatchSize,
     reconnectRetryCount,
     reconnectRetryIntervalSeconds,
+    fetchServerCount,
     softEtherDisableNatT,
     softEtherNatTRetryWaitSeconds,
     serversFlatView,

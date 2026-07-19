@@ -23,12 +23,10 @@ class ServerRow extends StatelessWidget {
     required this.onBookmarkToggle,
   });
 
-  /// Latency bucket colour: fast (<80ms), medium (<150ms), slow otherwise.
-  static Color _pingColor(int ping) {
-    if (ping < 80) return AppColors.pingGood;
-    if (ping < 150) return AppColors.pingMedium;
-    return AppColors.pingBad;
-  }
+  /// Ping is always shown green: every listed server is reachable, and users
+  /// read amber/red latency as "won't work" when it works fine. The number
+  /// still conveys speed; the colour no longer alarms.
+  static Color _pingColor(int ping) => AppColors.pingGood;
 
   @override
   Widget build(BuildContext context) {

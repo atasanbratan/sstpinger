@@ -411,6 +411,56 @@ class ProfileSettingsSheet extends StatelessWidget {
     );
   }
 
+  /// How many servers each fetch pulls from the backend (50–5000). More servers
+  /// means a fuller list but a heavier fetch.
+  Widget _buildFetchCountCard(BuildContext context, VpnState vpn) {
+    final count = vpn.fetchServerCount.clamp(50, 5000);
+    final bloc = context.read<VpnBloc>();
+
+    return Card(
+      color: AppColors.surfaceRaised,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.dns_rounded, color: AppColors.accent),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Servers per fetch',
+                    style: TextStyle(fontSize: 13, color: Colors.white),
+                  ),
+                ),
+                Text(
+                  '$count',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: count.toDouble(),
+              min: 50,
+              max: 5000,
+              divisions: 99, // steps of 50
+              activeColor: AppColors.accent,
+              label: '$count',
+              onChanged: (v) => bloc.add(FetchServerCountChanged(v.round())),
+              onChangeEnd: (_) =>
+                  bloc.add(const FetchServerCountPersistRequested()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// SoftEther transport: which mode to try first (NAT-T disabled = direct TCP)
   /// and how long to wait before falling back to the other. VPN Gate relays are
   /// split on which one works, so the app always tries both — this just tunes
@@ -721,6 +771,17 @@ class ProfileSettingsSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _buildPingSettingsCard(context, vpn),
+                const SizedBox(height: 20),
+                const Text(
+                  'SERVER LIST',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white38,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildFetchCountCard(context, vpn),
                 const SizedBox(height: 20),
                 const Text(
                   'RECONNECTION',

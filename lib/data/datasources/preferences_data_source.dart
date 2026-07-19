@@ -31,9 +31,16 @@ class PreferencesDataSource {
   static const String _keySoftEtherDisableNatT = 'softether_disable_natt';
   static const String _keySoftEtherNatTRetryWaitSec =
       'softether_natt_retry_wait_sec';
+  static const String _keyFetchServerCount = 'fetch_server_count';
 
   static const int defaultPingTimeoutMs = 1500;
   static const int defaultPingBatchSize = 25;
+
+  // How many servers each fetch requests from the backend. Clamped to
+  // [50, 5000]; the backend clamps identically as a backstop.
+  static const int defaultFetchServerCount = 1000;
+  static const int minFetchServerCount = 50;
+  static const int maxFetchServerCount = 5000;
 
   // Reconnection defaults: on an unexpected drop, retry a few times a few
   // seconds apart. A retry count of 0 disables auto-reconnection.
@@ -143,6 +150,18 @@ class PreferencesDataSource {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyReconnectRetryCount, retryCount);
     await prefs.setInt(_keyReconnectRetryIntervalSec, retryIntervalSec);
+  }
+
+  Future<int> getFetchServerCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final v = prefs.getInt(_keyFetchServerCount) ?? defaultFetchServerCount;
+    return v.clamp(minFetchServerCount, maxFetchServerCount);
+  }
+
+  Future<void> setFetchServerCount(int count) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(
+        _keyFetchServerCount, count.clamp(minFetchServerCount, maxFetchServerCount));
   }
 
   Future<bool> getSoftEtherDisableNatT() async {

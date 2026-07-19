@@ -32,6 +32,7 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
     final response = await _remote.fetchVpnServers(
       username: username,
       deviceId: deviceId,
+      count: await _prefs.getFetchServerCount(),
     );
     await _prefs.saveSubscriptionInfo(
       expireTime: response.expireTime,
@@ -69,6 +70,7 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
     final response = await _remote.fetchVpnServers(
       username: username,
       deviceId: deviceId,
+      count: await _prefs.getFetchServerCount(),
     );
     await _prefs.saveSubscriptionInfo(
       expireTime: response.expireTime,

@@ -37,6 +37,13 @@ class SettingsRepositoryImpl implements SettingsRepository {
   );
 
   @override
+  Future<int> getFetchServerCount() => _prefs.getFetchServerCount();
+
+  @override
+  Future<void> saveFetchServerCount(int count) =>
+      _prefs.setFetchServerCount(count);
+
+  @override
   Future<bool> getSoftEtherDisableNatT() => _prefs.getSoftEtherDisableNatT();
 
   @override

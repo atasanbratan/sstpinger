@@ -52,11 +52,13 @@ class VpnRemoteDataSource {
   Future<VpnServersResponse> fetchVpnServers({
     required String username,
     required String deviceId,
+    int? count,
   }) async {
     final Map<String, dynamic> payload = {
       'deviceId': deviceId,
       'username': username,
       if (_pool != null) 'pool': _pool,
+      'count': ?count,
     };
 
     try {
