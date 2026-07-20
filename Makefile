@@ -142,7 +142,7 @@ release: ## Cut a release: make release VERSION=2.1.1 (bump, analyze, commit, ta
 	git push origin HEAD
 	git push origin "v$(VERSION)"
 	@echo "==> pushed v$(VERSION). CI will build and publish the release:"
-	@echo "    https://github.com/atasanbratan/sstp_shield/releases/tag/v$(VERSION)"
+	@echo "    https://github.com/sstp-pinger/sstp_shield_releases/releases/tag/v$(VERSION)"
 	@echo "    watch:  gh run watch \$$(gh run list --branch v$(VERSION) --limit 1 --json databaseId --jq '.[0].databaseId')"
 
 .PHONY: clean

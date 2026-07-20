@@ -21,7 +21,7 @@ class ApkInstaller {
 
   /// Base URL for GitHub release assets.
   static const String _releaseBase =
-      'https://github.com/atasanbratan/sstp_shield_releases/releases/download';
+      'https://github.com/sstp-pinger/sstp_shield_releases/releases/download';
 
   // ---------------------------------------------------------------------------
   // Public API

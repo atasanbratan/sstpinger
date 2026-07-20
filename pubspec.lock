@@ -747,7 +747,7 @@ packages:
       path: "."
       ref: main
       resolved-ref: "765ec632017a1238125844338bf437d5351d30a0"
-      url: "https://github.com/atasanbratan/softether_client.git"
+      url: "https://github.com/sstp-pinger/softether_client.git"
     source: git
     version: "0.1.0"
   source_map_stack_trace:
@@ -780,7 +780,7 @@ packages:
       path: "."
       ref: main
       resolved-ref: "2e5bcfa068bf523dda8432fd43cb3b013bb9c55c"
-      url: "https://github.com/atasanbratan/sstp_client.git"
+      url: "https://github.com/sstp-pinger/sstp_client.git"
     source: git
     version: "0.1.0"
   sstp_flutter:
@@ -796,8 +796,8 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: f75ae2666bd6731059ad12cf8a72da478bc4b5c2
-      url: "https://github.com/atasanbratan/sstp_vpn_plugin.git"
+      resolved-ref: c102bed0e988a2e8dccf3b5ecdd5a9448c2d2297
+      url: "https://github.com/sstp-pinger/sstp_vpn_plugin.git"
     source: git
     version: "0.1.0"
   stack_trace:

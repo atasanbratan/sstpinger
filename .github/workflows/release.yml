@@ -8,7 +8,7 @@
 # This source repo is PRIVATE. Only the built assets are exposed, and they land
 # in a separate public repo:
 #
-#   RELEASE_REPO  = atasanbratan/sstp_shield_releases  (public; README + assets)
+#   RELEASE_REPO  = sstp-pinger/sstp_shield_releases  (public; README + assets)
 #
 # Two things follow from the split, both driven by the GH_PAT secret (a PAT with
 # `repo` scope on this account):
@@ -140,7 +140,7 @@ jobs:
       # privileged pkexec helper, so the SoftEther protocol works out of the box.
       - name: Build & stage SoftEther
         run: |
-          git clone --depth 1 https://github.com/atasanbratan/softether_client.git /tmp/se
+          git clone --depth 1 https://github.com/sstp-pinger/softether_client.git /tmp/se
           bash /tmp/se/tool/fetch_softether.sh /tmp/se/softether
           (cd /tmp/se && dart pub get && \
             dart compile exe bin/softether_helper.dart -o softether/softether-helper)
@@ -161,7 +161,7 @@ jobs:
              /tmp/se/softether/hamcore.se2 /tmp/se/softether/softether-helper \
              "$STAGE/softether/"
           # setup_privilege.sh + ip_wrapper.c come from the plugin.
-          git clone --depth 1 https://github.com/atasanbratan/sstp_vpn_plugin.git /tmp/plugin
+          git clone --depth 1 https://github.com/sstp-pinger/sstp_vpn_plugin.git /tmp/plugin
           mkdir -p "$STAGE/tool"
           cp /tmp/plugin/tool/setup_privilege.sh /tmp/plugin/tool/ip_wrapper.c "$STAGE/tool/"
           # Go/uTLS TLS relay: lets the SSTP protocol get past networks that
@@ -208,7 +208,7 @@ jobs:
       - name: Build & stage TLS relay
         shell: bash
         run: |
-          git clone --depth 1 https://github.com/atasanbratan/sstp_vpn_plugin.git /tmp/plugin
+          git clone --depth 1 https://github.com/sstp-pinger/sstp_vpn_plugin.git /tmp/plugin
           OUT="build/windows/x64/runner/Release/tls-relay"
           mkdir -p "$OUT"
           go build -C /tmp/plugin/go/tls_relay -trimpath -o "$OUT/sstp-tls-relay.exe" .
@@ -259,7 +259,7 @@ jobs:
       - name: Publish Release to public repo
         uses: softprops/action-gh-release@v2
         with:
-          repository: atasanbratan/sstp_shield_releases
+          repository: sstp-pinger/sstp_shield_releases
           token: ${{ secrets.GH_PAT }}
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}

@@ -4,8 +4,8 @@
 
 **A cross-platform SSTP VPN client — Android, iOS, Linux and Windows — built with Flutter.**
 
-[![build](https://github.com/atasanbratan/sstp_shield/actions/workflows/release.yml/badge.svg)](https://github.com/atasanbratan/sstp_shield/actions/workflows/release.yml)
-[![latest release](https://img.shields.io/github/v/release/atasanbratan/sstp_shield?sort=semver)](https://github.com/atasanbratan/sstp_shield/releases/latest)
+[![build](https://github.com/sstp-pinger/sstp_shield/actions/workflows/release.yml/badge.svg)](https://github.com/sstp-pinger/sstp_shield/actions/workflows/release.yml)
+[![latest release](https://img.shields.io/github/v/release/sstp-pinger/sstp_shield?sort=semver)](https://github.com/sstp-pinger/sstp_shield/releases/latest)
 [![platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Linux%20%7C%20Windows-blue)](#platform-support)
 
 </div>
@@ -18,15 +18,15 @@ each node and sort by it, and brings up a system VPN tunnel.
 
 On **mobile** it tunnels through the third-party [`sstp_flutter`](https://pub.dev/packages/sstp_flutter)
 plugin. On **desktop** it runs on our own pure-Dart SSTP + PPP stack —
-[`sstp_vpn_plugin`](https://github.com/atasanbratan/sstp_vpn_plugin), built on
-[`sstp_client`](https://github.com/atasanbratan/sstp_client) — reaching `/dev/net/tun`
+[`sstp_vpn_plugin`](https://github.com/sstp-pinger/sstp_vpn_plugin), built on
+[`sstp_client`](https://github.com/sstp-pinger/sstp_client) — reaching `/dev/net/tun`
 on Linux and Wintun on Windows. The handshake and the packet loop run in a dedicated
 isolate, off the UI thread.
 
 **Desktop also speaks SoftEther.** A protocol picker (Settings → Protocol) lets you
 choose SSTP or SoftEther's SSL-VPN, which reaches the same VPN Gate relays and often
 connects where SSTP won't. SoftEther is driven through
-[`softether_client`](https://github.com/atasanbratan/softether_client), a pure-Dart
+[`softether_client`](https://github.com/sstp-pinger/softether_client), a pure-Dart
 wrapper around the official SoftEther `vpnclient`/`vpncmd`. On **Linux** the client is
 bundled; on **Windows** you must install the official
 [SoftEther VPN Client](https://www.softether-download.com/) yourself (its signed adapter
@@ -37,7 +37,7 @@ Mobile is SSTP-only.
 
 | Platform | Tunnel | Status |
 |---|---|---|
-| Android | `sstp_flutter` (VpnService) | Supported — signed APKs in [Releases](https://github.com/atasanbratan/sstp_shield/releases) |
+| Android | `sstp_flutter` (VpnService) | Supported — signed APKs in [Releases](https://github.com/sstp-pinger/sstp_shield/releases) |
 | iOS | `sstp_flutter` (NEVPNManager) | Builds from the same codebase; not distributed here, least exercised |
 | Linux (x64, GTK) | `sstp_vpn_plugin` (`/dev/net/tun`) · **SoftEther** (bundled) | Supported — needs a one-time capability setup |
 | Windows (10/11, x64) | `sstp_vpn_plugin` (Wintun) · **SoftEther** (official client) | Supported — requests Administrator at launch |
@@ -63,7 +63,7 @@ because that backend has never been proven against a live server.
 
 ## Install
 
-Grab a build from the [**latest release**](https://github.com/atasanbratan/sstp_shield/releases/latest).
+Grab a build from the [**latest release**](https://github.com/sstp-pinger/sstp_shield/releases/latest).
 
 **Android** — install `sstp-shield-local.apk` (activation code) or
 `sstp-shield-foreign.apk` (USDT subscription). You will need to allow installs from
@@ -92,7 +92,7 @@ steps do, and why each is necessary, is documented at the top of the script.
 Requires the Flutter SDK (stable channel).
 
 ```sh
-git clone https://github.com/atasanbratan/sstp_shield.git
+git clone https://github.com/sstp-pinger/sstp_shield.git
 cd sstp_shield
 flutter pub get
 
@@ -197,9 +197,9 @@ ping-and-sort, bookmarks, activation import, and tunnel status mapping.
 
 | Project | What it is |
 |---|---|
-| [`sstp_client`](https://github.com/atasanbratan/sstp_client) | Pure-Dart SSTP + PPP protocol stack and tunnel backends |
-| [`sstp_vpn_plugin`](https://github.com/atasanbratan/sstp_vpn_plugin) | Flutter plugin wrapping it for Linux + Windows |
-| [`softether_client`](https://github.com/atasanbratan/softether_client) | Pure-Dart driver for the official SoftEther VPN Client (desktop) |
+| [`sstp_client`](https://github.com/sstp-pinger/sstp_client) | Pure-Dart SSTP + PPP protocol stack and tunnel backends |
+| [`sstp_vpn_plugin`](https://github.com/sstp-pinger/sstp_vpn_plugin) | Flutter plugin wrapping it for Linux + Windows |
+| [`softether_client`](https://github.com/sstp-pinger/softether_client) | Pure-Dart driver for the official SoftEther VPN Client (desktop) |
 
 ## License
 
