@@ -23,8 +23,13 @@ class VpnServersResponse {
 /// [ApiException] / [SubscriptionExpiredException].
 class VpnRemoteDataSource {
   final Dio _dio;
+
+  // The single canonical Apps Script deployment — the same one the admin console
+  // uses. Keep both apps on one deployment: `clasp deploy` without
+  // --deploymentId mints a NEW url, which silently leaves one app on stale code.
+  // Redeploy with:  clasp deploy --deploymentId <id>
   static const String _url =
-      'https://script.google.com/macros/s/AKfycbyqKggC-QqxUAoc-u_8uut3gbHoFMXUr5-N7gQlIp53Ga6juJ8g12jJFvEiDgp9-I2c/exec';
+      'https://script.google.com/macros/s/AKfycbzrQzAdmh0rfqEW6c7rWT5h4aRZruAaMZOp6l6nxhw6oxyWS8ZIh6MIgaBnqHoJ7e9UEg/exec';
 
   /// The backend server pool to fetch from (e.g. "ASTU" for the Turkmen build),
   /// or null for the default full list. See [AppVariant.serverPool].
