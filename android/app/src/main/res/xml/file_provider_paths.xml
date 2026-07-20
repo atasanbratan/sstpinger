@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider paths for the in-app APK updater.
+    The downloaded APK is saved to the app's cache directory and shared
+    with the system package-installer via a content:// URI (Android 7+).
+-->
+<paths>
+    <cache-path name="apk_cache" path="." />
+</paths>

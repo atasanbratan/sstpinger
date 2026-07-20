@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Needed to trigger the system package-installer for in-app APK updates. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Required to write the downloaded APK on Android ≤9 (API 28). -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <application
         android:label="${appName}"
         android:name="${applicationName}"
@@ -32,6 +37,20 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!--
+            FileProvider: required so the install intent can share the downloaded
+            APK file URI on Android 7+ (avoids FileUriExposedException).
+            open_filex uses this authority automatically.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

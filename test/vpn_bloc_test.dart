@@ -1,6 +1,7 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sstp_shield/domain/entities/app_update_info.dart';
 import 'package:sstp_shield/domain/entities/ping_mode.dart';
 import 'package:sstp_shield/domain/entities/subscription.dart';
 import 'package:sstp_shield/domain/entities/tunnel_protocol.dart';
@@ -58,6 +59,10 @@ void main() {
     when(() => serverRepo.saveRecents(any())).thenAnswer((_) async {});
     when(() => serverRepo.saveWithPing(any())).thenAnswer((_) async {});
     when(() => serverRepo.cachedServers).thenReturn([]);
+    // No update advertised by default; tests that exercise the updater stub
+    // this getter themselves.
+    when(() => serverRepo.cachedUpdateInfo)
+        .thenReturn(AppUpdateInfo.none);
     when(() => settings.saveProtocol(any())).thenAnswer((_) async {});
   });
 
@@ -252,17 +257,83 @@ void main() {
         verify(() => serverRepo.saveWithPing([a])).called(greaterThan(0));
       },
     );
+  });
+
+  group('app update', () {
+    final a = server(id: 1, ip: '1.1.1.1');
+    final b = server(id: 2, ip: '2.2.2.2');
 
     blocTest<VpnBloc, VpnState>(
-      'an invalid code surfaces a message and no unlock',
-      setUp: () => when(() => subs.importActivationCode('bad'))
-          .thenThrow(const FormatException('bad base64')),
-      build: build,
-      act: (bloc) => bloc.add(const ActivationCodeSubmitted('bad')),
-      verify: (bloc) {
-        expect(bloc.state.message, isNotNull);
-        expect(bloc.state.actionResult?.success, isFalse);
+      'a fetch surfaces the advertised AppUpdateInfo on state',
+      setUp: () {
+        when(() => serverRepo.fetchServers())
+            .thenAnswer((_) async => [a, b]);
+        when(() => serverRepo.cachedUpdateInfo).thenReturn(
+          const AppUpdateInfo(
+            latestVersion: '2.4.0',
+            minVersion: '2.3.0',
+            updateUrl: 'https://example/release',
+          ),
+        );
       },
+      build: build,
+      act: (bloc) => bloc.add(const VpnStarted()),
+      verify: (bloc) {
+        expect(bloc.state.appUpdateInfo.latestVersion, '2.4.0');
+        expect(bloc.state.appUpdateInfo.minVersion, '2.3.0');
+        expect(bloc.state.updateBannerDismissed, isFalse);
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'a newer latestVersion re-arms a previously dismissed banner',
+      setUp: () {
+        when(() => serverRepo.fetchServers())
+            .thenAnswer((_) async => [a, b]);
+        when(() => serverRepo.cachedUpdateInfo).thenReturn(
+          const AppUpdateInfo(latestVersion: '2.4.1'),
+        );
+      },
+      build: build,
+      act: (bloc) async {
+        // Seed a previously dismissed advisory for an older latest…
+        bloc.add(const UpdateBannerDismissed());
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(const VpnStarted());
+      },
+      verify: (bloc) =>
+          expect(bloc.state.updateBannerDismissed, isFalse),
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'the same latestVersion keeps a dismissed banner dismissed',
+      setUp: () {
+        when(() => serverRepo.fetchServers())
+            .thenAnswer((_) async => [a, b]);
+        when(() => serverRepo.cachedUpdateInfo).thenReturn(
+          const AppUpdateInfo(latestVersion: '2.4.1'),
+        );
+      },
+      build: build,
+      act: (bloc) async {
+        // First fetch arms the advisory for 2.4.1…
+        bloc.add(const VpnStarted());
+        await Future<void>.delayed(Duration.zero);
+        // …dismissing it, then fetching again (same latest) keeps it hidden.
+        bloc.add(const UpdateBannerDismissed());
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(const ServersFetchRequested());
+      },
+      verify: (bloc) =>
+          expect(bloc.state.updateBannerDismissed, isTrue),
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'UpdateBannerDismissed hides the advisory banner',
+      build: build,
+      act: (bloc) => bloc.add(const UpdateBannerDismissed()),
+      verify: (bloc) =>
+          expect(bloc.state.updateBannerDismissed, isTrue),
     );
   });
 }

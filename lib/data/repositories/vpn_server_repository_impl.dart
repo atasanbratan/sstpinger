@@ -1,3 +1,4 @@
+import '../../domain/entities/app_update_info.dart';
 import '../../domain/entities/vpn_server.dart';
 import '../../domain/repositories/vpn_server_repository.dart';
 import '../datasources/preferences_data_source.dart';
@@ -6,17 +7,22 @@ import '../datasources/vpn_remote_data_source.dart';
 /// Server list + bookmarks, backed by the remote API and local preferences.
 /// Holds the in-memory cache the old `VpnRepository` did. It also records the
 /// subscription window returned alongside a fetch (via the shared preferences
-/// data source) — `SubscriptionRepository` reads that back for display.
+/// data source) — `SubscriptionRepository` reads that back for display — and
+/// the app-update advertisement the backend piggybacks onto each fetch.
 class VpnServerRepositoryImpl implements VpnServerRepository {
   final VpnRemoteDataSource _remote;
   final PreferencesDataSource _prefs;
 
   List<VpnServer> _cached = [];
+  AppUpdateInfo _cachedUpdate = AppUpdateInfo.none;
 
   VpnServerRepositoryImpl(this._remote, this._prefs);
 
   @override
   List<VpnServer> get cachedServers => _cached;
+
+  @override
+  AppUpdateInfo get cachedUpdateInfo => _cachedUpdate;
 
   @override
   Future<List<VpnServer>> fetchServers() async {
@@ -34,6 +40,7 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
       deviceId: deviceId,
       count: await _prefs.getFetchServerCount(),
     );
+    _cachedUpdate = response.updateInfo;
     await _prefs.saveSubscriptionInfo(
       expireTime: response.expireTime,
       lastFetch: DateTime.now(),
@@ -72,6 +79,7 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
       deviceId: deviceId,
       count: await _prefs.getFetchServerCount(),
     );
+    _cachedUpdate = response.updateInfo;
     await _prefs.saveSubscriptionInfo(
       expireTime: response.expireTime,
       lastFetch: DateTime.now(),

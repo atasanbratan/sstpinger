@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../domain/entities/app_update_info.dart';
 import '../../../domain/entities/ping_mode.dart';
 import '../../../domain/entities/ping_progress.dart';
 import '../../../domain/entities/tunnel_protocol.dart';
@@ -89,6 +90,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<ActivationCodeSubmitted>(_onActivation);
     on<FreeTrialRequested>(_onTrial);
     on<SubscriptionSubmitted>(_onSubscription);
+    on<UpdateBannerDismissed>(_onUpdateBannerDismissed);
   }
 
   Future<void> _onStarted(VpnStarted event, Emitter<VpnState> emit) async {
@@ -159,6 +161,14 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
           expireTime: sub.expireTime,
           lastFetchTime: sub.lastFetch,
           isFetchingServers: false,
+          appUpdateInfo: _serverRepo.cachedUpdateInfo,
+          // A new latest version (or none at all) re-arms the advisory banner.
+          updateBannerDismissed: _sameLatest(
+            state.appUpdateInfo,
+            _serverRepo.cachedUpdateInfo,
+          )
+              ? state.updateBannerDismissed
+              : false,
         ),
       );
     } on SubscriptionExpiredException catch (e) {
@@ -210,6 +220,13 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
           servers: merged,
           isSubscriptionExpired: false,
           syncStatus: ServerSyncStatus.synced,
+          appUpdateInfo: _serverRepo.cachedUpdateInfo,
+          updateBannerDismissed: _sameLatest(
+            state.appUpdateInfo,
+            _serverRepo.cachedUpdateInfo,
+          )
+              ? state.updateBannerDismissed
+              : false,
         ),
       );
     } on SubscriptionExpiredException catch (e) {
@@ -574,4 +591,14 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
 
   VpnActionResult _action(VpnActionKind kind, bool success) =>
       VpnActionResult(++_actionSeq, kind, success);
+
+  void _onUpdateBannerDismissed(
+    UpdateBannerDismissed event,
+    Emitter<VpnState> emit,
+  ) => emit(state.copyWith(updateBannerDismissed: true));
+
+  /// Whether [a] and [b] advertise the same advisory version. Null-safe: a
+  /// transition into/out of `none` counts as a change so the banner re-arms.
+  bool _sameLatest(AppUpdateInfo a, AppUpdateInfo b) =>
+      a.latestVersion == b.latestVersion;
 }

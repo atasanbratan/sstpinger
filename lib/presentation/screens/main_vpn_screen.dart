@@ -1,15 +1,25 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_variant.dart';
+import '../../domain/entities/app_update_info.dart';
 import '../../domain/entities/tunnel_config.dart';
 import '../../domain/entities/tunnel_status.dart';
 import '../bloc/connection/connection_bloc.dart';
+import '../../core/utils/apk_installer.dart';
 import '../bloc/vpn/vpn_bloc.dart';
 import '../theme/app_colors.dart';
+import '../widgets/apk_download_sheet.dart';
+import '../widgets/app_update_banner.dart';
+import '../widgets/app_update_dialog.dart';
 import '../widgets/connection_control_card.dart';
 import '../widgets/power_button.dart';
 import '../widgets/profile_settings_sheet.dart';
@@ -33,6 +43,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   // App version, shown beside the title once loaded (empty until then).
   String _version = '';
 
+  // Whether the blocking "must update" dialog is currently on screen, so the
+  // listener does not re-push it on every state rebuild while below minVersion.
+  bool _forcedDialogShown = false;
+
+  // Cancel token for an in-progress APK download; null when idle.
+  CancelToken? _apkCancelToken;
+
   // Custom-config input lives in the widget layer (transient UI, not app state).
   final _customHostController = TextEditingController();
   final _customPortController = TextEditingController(text: '443');
@@ -48,7 +65,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
   Future<void> _loadVersion() async {
     final info = await PackageInfo.fromPlatform();
-    if (mounted) setState(() => _version = info.version);
+    if (!mounted) return;
+    setState(() => _version = info.version);
+    // If a fetch already landed before the version resolved, the forced-update
+    // listener would have skipped it (its listenWhen gates on the version being
+    // known) — re-check now that we have one.
+    _maybeShowForcedDialog(context.read<VpnBloc>().state);
+  }
+
+  /// Pushes the blocking dialog exactly once when the running version is below
+  /// the backend's `minVersion`. Guarded by [_forcedDialogShown] to avoid
+  /// re-pushing on every state rebuild while the client stays behind min.
+  void _maybeShowForcedDialog(VpnState state) {
+    if (!mounted || _version.isEmpty || _forcedDialogShown) return;
+    if (state.appUpdateInfo.statusOf(_version) != AppUpdateStatus.required) {
+      return;
+    }
+    _forcedDialogShown = true;
+    AppUpdateDialog.show(
+      context,
+      updateInfo: state.appUpdateInfo,
+      onTapDownload: () => _openUpdateUrl(state.appUpdateInfo),
+    );
   }
 
   @override
@@ -79,6 +117,127 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
         duration: const Duration(seconds: 4),
       ),
     );
+  }
+
+  /// Opens the update: in-app APK download on Android, browser on desktop.
+  ///
+  /// The updater must never be able to block the app, so every error path
+  /// degrades to a SnackBar rather than a crash or an unhandled exception.
+  Future<void> _openUpdateUrl(AppUpdateInfo updateInfo) async {
+    final version = updateInfo.latestVersion;
+    if (Platform.isAndroid && ApkInstaller.isSupported && version != null) {
+      await _downloadAndInstall(updateInfo, version);
+      return;
+    }
+    // Desktop / fallback: open the releases page in the system browser.
+    await _launchBrowser(updateInfo.updateUrl);
+  }
+
+  /// Android-only: downloads the per-ABI APK and invokes the system installer.
+  Future<void> _downloadAndInstall(
+    AppUpdateInfo updateInfo,
+    String version,
+  ) async {
+    // Build the direct-download URL for this device's ABI and variant.
+    final String apkUrl;
+    try {
+      apkUrl = await ApkInstaller.apkUrl(
+        version: version,
+        variant: widget.variant.name, // 'local' | 'foreign'
+      );
+    } catch (_) {
+      // ABI detection failed — fall back to the browser.
+      await _launchBrowser(updateInfo.updateUrl);
+      return;
+    }
+
+    // Set up a StreamController to drive the progress sheet.
+    final progressController = StreamController<double>.broadcast();
+    _apkCancelToken = CancelToken();
+    String? savedPath;
+
+    if (!mounted) return;
+    // Show the download sheet; it closes itself when the caller pops.
+    showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: AppColors.surfaceRaised,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => ApkDownloadSheet(
+        version: version,
+        progressStream: progressController.stream,
+        onInstall: () {
+          Navigator.of(context).pop(); // close the sheet
+          final path = savedPath;
+          if (path != null) {
+            ApkInstaller.install(path).then((ok) {
+              if (!ok && mounted) {
+                _showSnackBar(
+                  'Could not open the installer. Try installing manually.',
+                  isError: false,
+                );
+              }
+            });
+          }
+        },
+        onCancel: () {
+          _apkCancelToken?.cancel();
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+
+    // Run the download after the sheet is visible.
+    try {
+      savedPath = await ApkInstaller.download(
+        apkUrl,
+        onProgress: (p) {
+          if (!progressController.isClosed) progressController.add(p);
+        },
+        cancelToken: _apkCancelToken,
+      );
+      // Signal completion (sheet switches to "Install" button).
+      if (!progressController.isClosed) progressController.add(1.0);
+    } on DioException catch (e) {
+      if (!progressController.isClosed) progressController.close();
+      if (e.type == DioExceptionType.cancel) return; // user cancelled — silent
+      if (mounted) {
+        Navigator.of(context).pop(); // close the sheet
+        _showSnackBar(
+          'Download failed. Please try again or visit the releases page.',
+          isError: true,
+        );
+      }
+    } catch (_) {
+      if (!progressController.isClosed) progressController.close();
+      if (mounted) {
+        Navigator.of(context).pop();
+        _showSnackBar('An unexpected error occurred during download.', isError: true);
+      }
+    } finally {
+      _apkCancelToken = null;
+      await progressController.close();
+    }
+  }
+
+  /// Opens [url] in the system browser, degrading to a SnackBar on failure.
+  Future<void> _launchBrowser(String? url) async {
+    if (url == null) {
+      _showSnackBar('No download link is available yet.', isError: false);
+      return;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasAbsolutePath) {
+      _showSnackBar('The download link is invalid.', isError: false);
+      return;
+    }
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      _showSnackBar('Could not open the download link.', isError: false);
+    }
   }
 
   /// Connect if idle, disconnect if active. Builds the tunnel config from the
@@ -173,6 +332,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           listener: (context, _) =>
               _showSnackBar('Activation code renewed!', isError: false),
         ),
+        // Forced update: when the backend says the running build is below
+        // minVersion, push the blocking dialog once. Advisory newer-build
+        // banners are rendered inline in the body instead.
+        BlocListener<VpnBloc, VpnState>(
+          listenWhen: (p, c) =>
+              c.appUpdateInfo != p.appUpdateInfo && _version.isNotEmpty,
+          listener: (context, state) => _maybeShowForcedDialog(state),
+        ),
       ],
       child: BlocBuilder<VpnBloc, VpnState>(
         builder: (context, vpn) {
@@ -217,13 +384,37 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           : null,
       body: SafeArea(
         bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) => constraints.maxWidth >= _wideBreakpoint
-              ? _buildWideBody(context, vpn)
-              : _buildNarrowBody(context, vpn),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_shouldShowUpdateBanner(vpn))
+              AppUpdateBanner(
+                updateInfo: vpn.appUpdateInfo,
+                onTapDownload: () => _openUpdateUrl(vpn.appUpdateInfo),
+                onDismiss: () => context
+                    .read<VpnBloc>()
+                    .add(const UpdateBannerDismissed()),
+              ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) =>
+                    constraints.maxWidth >= _wideBreakpoint
+                        ? _buildWideBody(context, vpn)
+                        : _buildNarrowBody(context, vpn),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  /// Advisory banner gate: a newer build exists (but not below `minVersion`),
+  /// and the user has not dismissed it this session for this `latestVersion`.
+  /// The blocking `required` case never reaches here — it's a dialog instead.
+  bool _shouldShowUpdateBanner(VpnState vpn) {
+    if (_version.isEmpty || vpn.updateBannerDismissed) return false;
+    return vpn.appUpdateInfo.statusOf(_version) == AppUpdateStatus.optional;
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {

@@ -208,3 +208,10 @@ class SubscriptionSubmitted extends VpnEvent {
   @override
   List<Object?> get props => [network, txHash];
 }
+
+/// Dismisses the advisory update banner for the current `latestVersion`. It is
+/// advisory only — the banner stays hidden this session for that version, but a
+/// blocking dialog (version below `minVersion`) ignores it and always shows.
+class UpdateBannerDismissed extends VpnEvent {
+  const UpdateBannerDismissed();
+}

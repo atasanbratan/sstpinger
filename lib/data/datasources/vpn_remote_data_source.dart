@@ -5,17 +5,24 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
+import '../../domain/entities/app_update_info.dart';
 import '../../domain/entities/vpn_server.dart';
 import '../../domain/failures/failures.dart';
 import '../dto/vpn_server_dto.dart';
 
-/// Result of a successful server fetch: the server list plus the subscription
-/// expiry the backend reported alongside it.
+/// Result of a successful server fetch: the server list, the subscription
+/// expiry, and the app-update advertisement the backend piggybacked onto the
+/// response (null when the feed is absent — never an error).
 class VpnServersResponse {
   final List<VpnServer> servers;
   final DateTime? expireTime;
+  final AppUpdateInfo updateInfo;
 
-  VpnServersResponse({required this.servers, this.expireTime});
+  VpnServersResponse({
+    required this.servers,
+    this.expireTime,
+    this.updateInfo = AppUpdateInfo.none,
+  });
 }
 
 /// The backend HTTP client (Google Apps Script endpoint). Speaks JSON in, opaque
@@ -124,6 +131,7 @@ class VpnRemoteDataSource {
       return VpnServersResponse(
         servers: VpnServerDto.listFromJson(list),
         expireTime: _parseExpireTime(decoded['expireTime']),
+        updateInfo: _parseUpdateInfo(decoded),
       );
     } on DioException catch (e) {
       throw _apiExceptionFromDio(e);
@@ -204,6 +212,31 @@ class VpnRemoteDataSource {
   DateTime? _parseExpireTime(dynamic raw) {
     if (raw == null) return null;
     return DateTime.tryParse(raw.toString())?.toLocal();
+  }
+
+  /// Reads the update feed the backend piggybacks onto a fetch. Every field is
+  /// nullable so a missing or malformed value yields [AppUpdateInfo.none] — the
+  /// updater must never be able to break the app, so a bad feed shows nothing.
+  AppUpdateInfo _parseUpdateInfo(Map<String, dynamic> decoded) {
+    final latest = _asStringOrNull(decoded['latestVersion']);
+    final min = _asStringOrNull(decoded['minVersion']);
+    final url = _asStringOrNull(decoded['updateUrl']);
+    if (latest == null && min == null && url == null) {
+      return AppUpdateInfo.none;
+    }
+    return AppUpdateInfo(
+      latestVersion: latest,
+      minVersion: min,
+      updateUrl: url,
+    );
+  }
+
+  /// Trims a JSON value to a string, returning null when absent or whitespace-only
+  /// (never an empty string — empty is not a useful version).
+  static String? _asStringOrNull(dynamic raw) {
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    return s.isEmpty ? null : s;
   }
 
   /// Maps a [DioException] to a readable [ApiException]. Lives here (data) rather

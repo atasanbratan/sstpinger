@@ -86,6 +86,17 @@ class VpnState extends Equatable {
   final VpnActionResult? actionResult;
   final ServerSyncStatus syncStatus;
 
+  /// App-update advertisement the backend piggybacked onto the last fetch.
+  /// [AppUpdateInfo.none] until the first fetch succeeds. Advisory-only here;
+  /// the screen compares the running version to decide a dismissible banner vs
+  /// a blocking "must update" dialog.
+  final AppUpdateInfo appUpdateInfo;
+
+  /// True once the user dismissed the advisory banner for the current
+  /// `latestVersion`, so it does not nag them again this session. A blocking
+  /// dialog (version below `minVersion`) ignores this and always shows.
+  final bool updateBannerDismissed;
+
   const VpnState({
     this.initialized = false,
     this.username = '',
@@ -119,6 +130,8 @@ class VpnState extends Equatable {
     this.message,
     this.actionResult,
     this.syncStatus = ServerSyncStatus.initial,
+    this.appUpdateInfo = AppUpdateInfo.none,
+    this.updateBannerDismissed = false,
   });
 
   int get pingPercent =>
@@ -178,6 +191,8 @@ class VpnState extends Equatable {
     VpnMessage? message,
     VpnActionResult? actionResult,
     ServerSyncStatus? syncStatus,
+    AppUpdateInfo? appUpdateInfo,
+    bool? updateBannerDismissed,
   }) {
     return VpnState(
       initialized: initialized ?? this.initialized,
@@ -220,6 +235,8 @@ class VpnState extends Equatable {
       message: message,
       actionResult: actionResult,
       syncStatus: syncStatus ?? this.syncStatus,
+      appUpdateInfo: appUpdateInfo ?? this.appUpdateInfo,
+      updateBannerDismissed: updateBannerDismissed ?? this.updateBannerDismissed,
     );
   }
 
@@ -257,5 +274,7 @@ class VpnState extends Equatable {
     message,
     actionResult,
     syncStatus,
+    appUpdateInfo,
+    updateBannerDismissed,
   ];
 }

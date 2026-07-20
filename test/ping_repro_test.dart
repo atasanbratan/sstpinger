@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:sstp_shield/domain/entities/app_update_info.dart';
 import 'package:sstp_shield/domain/entities/ping_mode.dart';
 import 'package:sstp_shield/domain/entities/tunnel_protocol.dart';
 import 'package:sstp_shield/data/datasources/tcp_ping_service.dart';
@@ -65,6 +66,7 @@ void main() {
         .thenAnswer((_) async => [reachable, dead]);
     when(() => serverRepo.saveWithPing(any())).thenAnswer((_) async {});
     when(() => serverRepo.cachedServers).thenReturn([]);
+    when(() => serverRepo.cachedUpdateInfo).thenReturn(AppUpdateInfo.none);
 
     final bloc = VpnBloc(
       fetchServers: FetchServers(serverRepo),

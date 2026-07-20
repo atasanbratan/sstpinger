@@ -1,3 +1,4 @@
+import '../entities/app_update_info.dart';
 import '../entities/vpn_server.dart';
 
 /// Contract for obtaining and persisting the server list and bookmarks. The
@@ -6,6 +7,11 @@ import '../entities/vpn_server.dart';
 abstract class VpnServerRepository {
   /// The last known server list held in memory (empty before the first load).
   List<VpnServer> get cachedServers;
+
+  /// The app-update advertisement most recently returned alongside a
+  /// `fetchServers` / `refreshAndMerge`. [AppUpdateInfo.none] before the first
+  /// fetch, and never an error — a missing feed yields `none`.
+  AppUpdateInfo get cachedUpdateInfo;
 
   /// Fetches the server list from the backend for the stored identity and caches
   /// it. Returns an empty list if there is no username/device id yet. Throws
