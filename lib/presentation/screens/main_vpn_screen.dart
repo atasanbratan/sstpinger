@@ -545,7 +545,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
         children: [
           PowerButton(
             status: conn.status,
-            duration: conn.duration,
             onToggle: () => _toggleConnection(vpn, conn.isConnected),
           ),
           const SizedBox(height: 18),

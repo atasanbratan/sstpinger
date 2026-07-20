@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/tunnel_status.dart';
+import '../bloc/connection/connection_bloc.dart';
 import '../theme/app_colors.dart';
 
 /// The hero connect control: a large circular power button with concentric
 /// rings, carrying the status label and the session timer *inside* the ring.
 class PowerButton extends StatelessWidget {
   final TunnelStatus status;
-  final Duration duration;
   final VoidCallback onToggle;
 
   const PowerButton({
     super.key,
     required this.status,
-    required this.duration,
     required this.onToggle,
   });
 
@@ -105,13 +105,20 @@ class PowerButton extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      isConnected ? Formatters.duration(duration) : '00:00:00',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 1.2,
-                        color: AppColors.textSecondary,
+                    BlocBuilder<ConnectionBloc, VpnConnectionState>(
+                      buildWhen: (previous, current) =>
+                          previous.duration != current.duration ||
+                          previous.isConnected != current.isConnected,
+                      builder: (context, conn) => Text(
+                        conn.isConnected
+                            ? Formatters.duration(conn.duration)
+                            : '00:00:00',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w300,
+                          letterSpacing: 1.2,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ],
