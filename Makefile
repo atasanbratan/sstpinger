@@ -25,7 +25,7 @@ endif
 
 # Location of the sstp_vpn_plugin checkout that ships setup_privilege.sh.
 # Override on the command line if yours lives elsewhere:  make run PLUGIN=/path
-PLUGIN ?= ../Projects/sstp_vpn_plugin
+PLUGIN ?= ../sstp_vpn_plugin
 
 PRIV_SCRIPT := $(PLUGIN)/tool/setup_privilege.sh
 BUNDLE      := build/linux/x64/release/bundle
@@ -34,7 +34,7 @@ WRAPPER     := $(BUNDLE)/sstp-vpn
 
 # The built SoftEther client binaries (vpnclient/vpncmd/hamcore.se2), bundled so
 # the SoftEther protocol works. Build them once with the package's fetch script.
-SOFTETHER_SRC ?= ../Projects/softether_client/softether
+SOFTETHER_SRC ?= ../softether_client/softether
 
 .DEFAULT_GOAL := help
 
