@@ -61,6 +61,17 @@ class VpnRemoteDataSource {
     }
   }
 
+  /// Which of the backend's per-platform device slots (see the backend's
+  /// src/core/Devices.js) this build binds to. Null on any platform the
+  /// backend doesn't have a slot for (iOS/macOS/web) — the backend falls
+  /// back to its pre-multi-device single-slot behavior when this is absent.
+  String? get _platform {
+    if (Platform.isAndroid) return 'android';
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isLinux) return 'linux';
+    return null;
+  }
+
   Future<VpnServersResponse> fetchVpnServers({
     required String username,
     required String deviceId,
@@ -71,6 +82,7 @@ class VpnRemoteDataSource {
       'username': username,
       if (_pool != null) 'pool': _pool,
       'count': ?count,
+      if (_platform != null) 'platform': _platform,
     };
 
     try {
