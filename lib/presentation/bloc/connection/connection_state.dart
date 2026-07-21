@@ -18,11 +18,18 @@ class VpnConnectionState extends Equatable {
   final Duration duration;
   final ConnectionError? error;
 
+  /// The node label of the tunnel currently connecting/connected (from
+  /// [TunnelConfig.label]) — carried here so anything outside the widget tree
+  /// (e.g. the live-stats notification) can show it without depending on
+  /// [VpnBloc]'s server selection.
+  final String label;
+
   const VpnConnectionState({
     required this.status,
     this.traffic,
     this.duration = Duration.zero,
     this.error,
+    this.label = '',
   });
 
   const VpnConnectionState.initial() : this(status: TunnelStatus.disconnected);
@@ -37,15 +44,17 @@ class VpnConnectionState extends Equatable {
     bool clearTraffic = false,
     Duration? duration,
     ConnectionError? error,
+    String? label,
   }) {
     return VpnConnectionState(
       status: status ?? this.status,
       traffic: clearTraffic ? null : (traffic ?? this.traffic),
       duration: duration ?? this.duration,
       error: error,
+      label: label ?? this.label,
     );
   }
 
   @override
-  List<Object?> get props => [status, traffic, duration, error];
+  List<Object?> get props => [status, traffic, duration, error, label];
 }

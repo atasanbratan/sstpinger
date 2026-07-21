@@ -39,7 +39,7 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
   bool _intentionalDisconnect = false; // user asked to disconnect → don't retry
   int _reconnectAttempt = 0; // attempts since the last successful connect
   Timer? _reconnectTimer;
-  int _retryCount = 3; // cached from settings, refreshed on manual connect
+  int _retryCount = 1; // cached from settings, refreshed on manual connect
   int _retryIntervalSec = 5;
 
   ConnectionBloc({
@@ -87,7 +87,7 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
     _lastConfig = event.config;
 
     // Optimistic, matching the old VM; the stream then drives the rest.
-    emit(state.copyWith(status: TunnelStatus.connecting));
+    emit(state.copyWith(status: TunnelStatus.connecting, label: event.config.label));
     try {
       await _connect(event.config);
     } catch (e) {
@@ -146,6 +146,7 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
               status: update.status,
               clearTraffic: true,
               duration: Duration.zero,
+              label: update.status == TunnelStatus.disconnected ? '' : null,
             ),
           );
         }
@@ -184,11 +185,16 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
         _retryCount > 0 &&
         _reconnectAttempt >= _retryCount;
     _reconnectAttempt = 0;
+    // Defensive: settling here means we are done retrying, so no earlier
+    // scheduled retry timer should be left alive to fire later and restart
+    // the cycle with a freshly-reset attempt count.
+    _cancelReconnect();
     emit(
       state.copyWith(
         status: TunnelStatus.disconnected,
         clearTraffic: true,
         duration: Duration.zero,
+        label: '',
         error: _error(
           exhausted ? 'Reconnection failed after $_retryCount attempts.' : reason,
         ),

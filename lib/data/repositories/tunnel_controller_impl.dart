@@ -17,6 +17,19 @@ class TunnelControllerImpl implements TunnelController {
   final StreamController<TunnelUpdate> _updates =
       StreamController<TunnelUpdate>.broadcast();
 
+  // `sstp_flutter` (mobile) fires `onDisconnectedResult` unconditionally and,
+  // for a failed connection, `onError` immediately after it — synchronously,
+  // in the same native callback — for what is really one event. Pushed as two
+  // separate updates, ConnectionBloc's drop handler ran twice per real
+  // failure: the plain "disconnected" scheduled a retry, then the "error"
+  // right behind it saw the just-incremented attempt count and gave up,
+  // *without* cancelling that first retry's timer. The dangling timer fired
+  // later, restarting the cycle with the attempt counter reset — an infinite
+  // "reconnecting 1/1" loop. Coalescing into a single push (a plain
+  // disconnect only actually goes out if no error follows in the same
+  // synchronous turn) fixes it at the source, for every data source.
+  bool _disconnectPending = false;
+
   TunnelControllerImpl(this._dataSource) {
     _dataSource.onResult(
       onConnected: (traffic, duration) => _push(
@@ -27,14 +40,21 @@ class TunnelControllerImpl implements TunnelController {
         ),
       ),
       onConnecting: () => _push(const TunnelUpdate(status: TunnelStatus.connecting)),
-      onDisconnected: () =>
-          _push(const TunnelUpdate(status: TunnelStatus.disconnected)),
-      onError: (message) => _push(
-        TunnelUpdate(
-          status: TunnelStatus.disconnected,
-          errorMessage: message,
-        ),
-      ),
+      onDisconnected: () {
+        _disconnectPending = true;
+        scheduleMicrotask(() {
+          if (_disconnectPending) {
+            _disconnectPending = false;
+            _push(const TunnelUpdate(status: TunnelStatus.disconnected));
+          }
+        });
+      },
+      onError: (message) {
+        _disconnectPending = false;
+        _push(
+          TunnelUpdate(status: TunnelStatus.disconnected, errorMessage: message),
+        );
+      },
     );
   }
 

@@ -36,7 +36,7 @@ class PreferencesDataSource {
   static const String _keyFetchServerCount = 'fetch_server_count';
 
   static const int defaultPingTimeoutMs = 1500;
-  static const int defaultPingBatchSize = 25;
+  static const int defaultPingBatchSize = 100;
 
   // How many servers each fetch requests from the backend. Clamped to
   // [50, 5000]; the backend clamps identically as a backstop.
@@ -46,7 +46,7 @@ class PreferencesDataSource {
 
   // Reconnection defaults: on an unexpected drop, retry a few times a few
   // seconds apart. A retry count of 0 disables auto-reconnection.
-  static const int defaultReconnectRetryCount = 3;
+  static const int defaultReconnectRetryCount = 1;
   static const int defaultReconnectRetryIntervalSec = 5;
 
   // SoftEther transport defaults: try NAT-T disabled (direct TCP) first, as it

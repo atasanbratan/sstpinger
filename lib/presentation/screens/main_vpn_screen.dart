@@ -20,7 +20,6 @@ import '../theme/app_colors.dart';
 import '../widgets/apk_download_sheet.dart';
 import '../widgets/app_update_banner.dart';
 import '../widgets/app_update_dialog.dart';
-import '../widgets/connection_control_card.dart';
 import '../widgets/power_button.dart';
 import '../widgets/profile_settings_sheet.dart';
 import '../widgets/server_list_view.dart';
@@ -55,6 +54,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   final _customPortController = TextEditingController(text: '443');
   final _customUsernameController = TextEditingController(text: 'vpn');
   final _customPasswordController = TextEditingController(text: 'vpn');
+
+  // The search field's own text buffer. Needed because the field is otherwise
+  // uncontrolled: the "clear" (x) button used to only dispatch an empty query
+  // to the bloc — the list cleared, but the typed characters stayed visible
+  // since nothing told the TextField itself to erase them.
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -97,6 +102,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     _customPortController.dispose();
     _customUsernameController.dispose();
     _customPasswordController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -279,7 +285,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           port: port,
           username: username,
           password: password,
-          label: vpn.useCustomConfig ? host : vpn.selectedServer!.hostname,
+          label: vpn.useCustomConfig ? host : vpn.selectedServer!.country,
           protocol: vpn.protocol,
           softEtherDisableNatT: vpn.softEtherDisableNatT,
           softEtherNatTRetryWaitSeconds: vpn.softEtherNatTRetryWaitSeconds,
@@ -456,53 +462,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     );
   }
 
-  /// Single-column (mobile): the hero is pinned at the top and only the server
-  /// list scrolls beneath it, so the power button never scrolls off-screen. The
-  /// hero also shrinks as the list scrolls, giving the list more room. Only the
-  /// hero rebuilds on scroll (via [AnimatedBuilder] on the controller), not the
-  /// list.
+  /// Single-column (mobile): the hero sits at the top, sized to its content
+  /// (not a fixed share of the screen) so the server list beneath it — the
+  /// thing users actually scroll through — gets the rest of the height.
   Widget _buildNarrowBody(BuildContext context, VpnState vpn) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 6),
-          child: AnimatedBuilder(
-            animation: _scrollController,
-            builder: (context, child) {
-              final offset =
-                  _scrollController.hasClients ? _scrollController.offset : 0.0;
-              // Collapse over the first 120px of scroll, down to 78% size.
-              final t = (offset / 120).clamp(0.0, 1.0);
-              final scale = 1.0 - 0.22 * t;
-              return Align(
-                alignment: Alignment.topCenter,
-                heightFactor: scale,
-                child: Transform.scale(
-                  scale: scale,
-                  alignment: Alignment.topCenter,
-                  child: child,
-                ),
-              );
-            },
-            child: _buildHero(context, vpn),
-          ),
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
+          child: Center(child: _buildHero(context, vpn)),
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 18.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 14),
-                _buildServersSection(context, vpn),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-        ),
+        Expanded(child: _buildServersSection(context, vpn)),
       ],
     );
   }
@@ -514,14 +485,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Left pane: the server list, taking half the window width.
-        Expanded(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(18, 8, 12, 24),
-            child: _buildServersSection(context, vpn),
-          ),
-        ),
+        Expanded(child: _buildServersSection(context, vpn)),
         const VerticalDivider(width: 1, color: AppColors.divider),
         Expanded(
           child: Center(
@@ -547,22 +511,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             status: conn.status,
             onToggle: () => _toggleConnection(vpn, conn.isConnected),
           ),
-          const SizedBox(height: 18),
-          ConnectionControlCard(
-            isConnected: conn.isConnected,
-            server: vpn.selectedServer,
-            useCustomConfig: vpn.useCustomConfig,
-            customHost: _customHostController.text,
-            customPort: _customPortController.text,
-            traffic: conn.traffic,
-          ),
         ],
       ),
     );
   }
 
-  /// The server picker: header, search row, ping progress, and the tabbed list.
+  /// The server picker: header/search/ping-progress ride as the scrolling
+  /// header of [ServerListView]'s own `CustomScrollView`, so the tabbed list
+  /// beneath it can be lazily built via `SliverList.builder` instead of an
+  /// eagerly-built `Column` of every server row.
   Widget _buildServersSection(BuildContext context, VpnState vpn) {
+    return ServerListView(
+      scrollController: _scrollController,
+      header: _buildServersHeaderBlock(vpn),
+    );
+  }
+
+  Widget _buildServersHeaderBlock(VpnState vpn) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -581,8 +546,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             ),
           ),
         ],
-        const SizedBox(height: 14),
-        const ServerListView(),
       ],
     );
   }
@@ -646,6 +609,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
         children: [
           Expanded(
             child: TextField(
+              controller: _searchController,
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 14,
@@ -661,9 +625,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                           color: AppColors.textMuted,
                           size: 18,
                         ),
-                        onPressed: () => context.read<VpnBloc>().add(
-                          const SearchQueryChanged(''),
-                        ),
+                        onPressed: () {
+                          _searchController.clear();
+                          context.read<VpnBloc>().add(
+                            const SearchQueryChanged(''),
+                          );
+                        },
                       )
                     : const Icon(
                         Icons.search_rounded,
@@ -777,26 +744,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
   void _showProfileAndSettingsModal() {
     final isForeign = widget.variant.isForeign;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surfaceRaised,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return ProfileSettingsSheet(
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (routeContext) => ProfileSettingsSheet(
           customHostController: _customHostController,
           customPortController: _customPortController,
           customUsernameController: _customUsernameController,
           customPasswordController: _customPasswordController,
           onEditUsername: () {
-            Navigator.pop(sheetContext);
+            Navigator.pop(routeContext);
             _promptEditUsername();
           },
           renewLabel: isForeign ? 'SUBSCRIBE / EXTEND' : 'RENEW ACTIVATION CODE',
           onRenew: () {
-            Navigator.pop(sheetContext);
+            Navigator.pop(routeContext);
             if (isForeign) {
               _openSubscription();
             } else {
@@ -808,11 +769,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           onRenewFromFile: isForeign
               ? null
               : () {
-                  Navigator.pop(sheetContext);
+                  Navigator.pop(routeContext);
                   _renewActivationCodeFromFile();
                 },
-        );
-      },
+        ),
+      ),
     );
   }
 

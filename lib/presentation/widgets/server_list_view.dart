@@ -6,18 +6,25 @@ import '../../domain/entities/vpn_server.dart';
 import '../bloc/connection/connection_bloc.dart';
 import '../bloc/vpn/vpn_bloc.dart';
 import '../theme/app_colors.dart';
-import 'server_group_card.dart';
+import 'rounded_list_tile.dart';
+import 'server_group_header.dart';
+import 'server_list_item.dart';
+import 'server_ping_action.dart';
 import 'server_row.dart';
+import 'server_tab_bar.dart';
 
-/// The three panes of the server picker, chosen by a horizontally-scrollable tab
-/// bar. Servers is the country-grouped accordion; Bookmarks and Recents are flat
-/// lists.
-enum _ServerTab { servers, bookmarks, recents }
-
-/// The server picker: a tab bar (Servers · Bookmarks · Recents) over the pane for
-/// the active tab.
+/// The server picker: a scroll owner (so the list can be virtualized) holding
+/// the caller-supplied [header] (server count / search / ping-progress), the
+/// tab bar (Servers · Bookmarks · Recents), and the active tab's pane.
 class ServerListView extends StatefulWidget {
-  const ServerListView({super.key});
+  final ScrollController scrollController;
+  final Widget header;
+
+  const ServerListView({
+    super.key,
+    required this.scrollController,
+    required this.header,
+  });
 
   @override
   State<ServerListView> createState() => _ServerListViewState();
@@ -27,7 +34,9 @@ class _ServerListViewState extends State<ServerListView> {
   // Country groups currently expanded (Servers tab). They start collapsed.
   final Set<String> _expanded = {};
 
-  _ServerTab _tab = _ServerTab.servers;
+  ServerTab _tab = ServerTab.servers;
+
+  static const double _groupGap = 10;
 
   void _toggle(String key) => setState(() {
     if (!_expanded.remove(key)) _expanded.add(key);
@@ -38,114 +47,64 @@ class _ServerListViewState extends State<ServerListView> {
     final vpn = context.watch<VpnBloc>().state;
     final isConnected = context.watch<ConnectionBloc>().state.isConnected;
 
-    if (vpn.isFetchingServers) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 40.0),
-        child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildTabBar(context, vpn),
-        const SizedBox(height: 14),
-        _buildActiveTab(context, vpn, isConnected),
-      ],
-    );
-  }
-
-  // -- tab bar ---------------------------------------------------------------
-
-  Widget _buildTabBar(BuildContext context, VpnState vpn) {
-    return Row(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _tabPill('Servers', vpn.servers.length, _ServerTab.servers),
-                const SizedBox(width: 8),
-                _tabPill('Bookmarks', vpn.bookmarkedServers.length,
-                    _ServerTab.bookmarks),
-                const SizedBox(width: 8),
-                _tabPill('Recents', vpn.recentServers.length,
-                    _ServerTab.recents),
-              ],
+    return CustomScrollView(
+      controller: widget.scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 0),
+          sliver: SliverToBoxAdapter(child: widget.header),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+          sliver: SliverToBoxAdapter(
+            child: ServerTabBar(
+              activeTab: _tab,
+              onTabSelected: (tab) => setState(() => _tab = tab),
+              serversCount: vpn.servers.length,
+              bookmarksCount: vpn.bookmarkedServers.length,
+              recentsCount: vpn.recentServers.length,
+              serversFlatView: vpn.serversFlatView,
+              onToggleFlatView: () => context
+                  .read<VpnBloc>()
+                  .add(ServersViewModeChanged(!vpn.serversFlatView)),
             ),
           ),
         ),
-        // The grouped/flat toggle only applies to the Servers tab.
-        if (_tab == _ServerTab.servers) _buildViewToggle(context, vpn),
+        if (vpn.isFetchingServers)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 40.0),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.accent),
+              ),
+            ),
+          )
+        else
+          ..._buildActiveTab(context, vpn, isConnected),
+        const SliverToBoxAdapter(child: SizedBox(height: 40)),
       ],
-    );
-  }
-
-  Widget _buildViewToggle(BuildContext context, VpnState vpn) {
-    final flat = vpn.serversFlatView;
-    return IconButton(
-      visualDensity: VisualDensity.compact,
-      iconSize: 20,
-      tooltip: flat ? 'Group by country' : 'Show as a flat list',
-      onPressed: () =>
-          context.read<VpnBloc>().add(ServersViewModeChanged(!flat)),
-      icon: Icon(
-        flat
-            ? Icons.travel_explore_rounded
-            : Icons.format_list_bulleted_rounded,
-        color: AppColors.textMuted,
-      ),
-    );
-  }
-
-  Widget _tabPill(String label, int count, _ServerTab tab) {
-    final active = _tab == tab;
-    return Material(
-      color: active ? AppColors.accent : AppColors.inputBackground,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => setState(() => _tab = tab),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: active ? AppColors.accent : AppColors.divider,
-            ),
-          ),
-          child: Text(
-            count > 0 ? '$label · $count' : label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: active ? AppColors.surfaceDeep : AppColors.textMuted,
-            ),
-          ),
-        ),
-      ),
     );
   }
 
   // -- panes -----------------------------------------------------------------
 
-  Widget _buildActiveTab(
+  List<Widget> _buildActiveTab(
     BuildContext context,
     VpnState vpn,
     bool isConnected,
   ) {
     final query = vpn.searchQuery;
     switch (_tab) {
-      case _ServerTab.servers:
+      case ServerTab.servers:
         return _buildServersTab(context, vpn);
-      case _ServerTab.bookmarks:
+      case ServerTab.bookmarks:
         return _buildFlatList(
           context,
           vpn,
           _filter(vpn.bookmarkedServers, query),
           empty: 'No bookmarks yet.\nTap the bookmark icon on a server to pin it.',
-          pingAction: _PingAction(
+          pingAction: PingAction(
             isPinging: vpn.isPinging,
             isConnected: isConnected,
             onPressed: () => context.read<VpnBloc>().add(
@@ -153,7 +112,7 @@ class _ServerListViewState extends State<ServerListView> {
             ),
           ),
         );
-      case _ServerTab.recents:
+      case ServerTab.recents:
         return _buildFlatList(
           context,
           vpn,
@@ -165,23 +124,17 @@ class _ServerListViewState extends State<ServerListView> {
 
   /// The Servers pane: country-grouped accordion, or a flat ping-sorted list —
   /// both honouring the search filter.
-  Widget _buildServersTab(BuildContext context, VpnState vpn) {
+  List<Widget> _buildServersTab(BuildContext context, VpnState vpn) {
     final filtered = vpn.filteredServers;
     if (filtered.isEmpty) {
-      return _emptyState('No servers match your search filter.');
+      return [_emptyStateSliver('No servers match your search filter.')];
     }
 
     if (vpn.serversFlatView) {
       // One flat list, fastest first; unreachable (no ping) sink to the bottom.
       final sorted = List<VpnServer>.from(filtered)
         ..sort((a, b) => (a.ping ?? 1 << 30).compareTo(b.ping ?? 1 << 30));
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [for (final s in sorted) _row(context, vpn, s)],
-        ),
-      );
+      return [_itemsSliver(context, vpn, _flatItems(sorted))];
     }
 
     // Group by country, preserving arrival order so a ping-sorted list keeps its
@@ -193,77 +146,128 @@ class _ServerListViewState extends State<ServerListView> {
     final countries = grouped.keys.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final country in countries)
-          _buildCountryGroup(context, vpn, country, grouped[country]!),
-      ],
-    );
-  }
-
-  Widget _buildCountryGroup(
-    BuildContext context,
-    VpnState vpn,
-    String country,
-    List<VpnServer> servers,
-  ) {
-    final short = servers.isNotEmpty ? servers.first.countryShort : '';
-    return ServerGroupCard(
-      leading: Container(
-        width: 30,
-        height: 30,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.surfaceDeep,
+    final items = <ServerListItem>[];
+    for (final country in countries) {
+      final servers = grouped[country]!;
+      final expanded = _expanded.contains(country);
+      items.add(
+        ServerHeaderItem(
+          country: country,
+          servers: servers,
+          isExpanded: expanded,
+          bottomGap: expanded ? 0 : _groupGap,
         ),
-        child: Text(
-          countryFlagEmoji(short),
-          style: const TextStyle(fontSize: 15),
-        ),
-      ),
-      title: country.toUpperCase(),
-      subtitle: _subtitle(servers),
-      reachable: _reachable(servers),
-      isExpanded: _expanded.contains(country),
-      onToggle: () => _toggle(country),
-      children: [for (final s in servers) _row(context, vpn, s)],
-    );
+      );
+      if (expanded) {
+        for (var i = 0; i < servers.length; i++) {
+          final isLast = i == servers.length - 1;
+          items.add(
+            ServerRowItem(
+              server: servers[i],
+              roundBottom: isLast,
+              bottomGap: isLast ? _groupGap : 0,
+            ),
+          );
+        }
+      }
+    }
+    return [_itemsSliver(context, vpn, items)];
   }
 
   /// A flat, rounded list of rows for the Bookmarks / Recents panes.
-  Widget _buildFlatList(
+  List<Widget> _buildFlatList(
     BuildContext context,
     VpnState vpn,
     List<VpnServer> servers, {
     required String empty,
     Widget? pingAction,
   }) {
-    if (servers.isEmpty) return _emptyState(empty);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (pingAction != null)
-          Align(alignment: Alignment.centerRight, child: pingAction),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [for (final s in servers) _row(context, vpn, s)],
+    if (servers.isEmpty) return [_emptyStateSliver(empty)];
+    return [
+      if (pingAction != null)
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          sliver: SliverToBoxAdapter(
+            child: Align(alignment: Alignment.centerRight, child: pingAction),
           ),
         ),
-      ],
+      _itemsSliver(context, vpn, _flatItems(servers)),
+    ];
+  }
+
+  List<ServerListItem> _flatItems(List<VpnServer> servers) => [
+    for (var i = 0; i < servers.length; i++)
+      ServerRowItem(
+        server: servers[i],
+        roundTop: i == 0,
+        roundBottom: i == servers.length - 1,
+        bottomGap: 0,
+      ),
+  ];
+
+  Widget _itemsSliver(
+    BuildContext context,
+    VpnState vpn,
+    List<ServerListItem> items,
+  ) {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      sliver: SliverList.builder(
+        itemCount: items.length,
+        itemBuilder: (context, index) =>
+            _buildItem(context, vpn, items[index]),
+      ),
     );
   }
 
-  Widget _emptyState(String message) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 40.0),
-    child: Center(
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.textFaint),
+  Widget _buildItem(BuildContext context, VpnState vpn, ServerListItem item) {
+    final tile = switch (item) {
+      ServerHeaderItem h => ServerGroupHeader(
+        leading: Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.surfaceDeep,
+          ),
+          child: Text(
+            countryFlagEmoji(h.servers.first.countryShort),
+            style: const TextStyle(fontSize: 15),
+          ),
+        ),
+        title: h.country.toUpperCase(),
+        subtitle: _subtitle(h.servers),
+        reachable: _reachable(h.servers),
+        isExpanded: h.isExpanded,
+        roundBottom: !h.isExpanded,
+        onToggle: () => _toggle(h.country),
+      ),
+      ServerRowItem r => RoundedListTile(
+        roundTop: r.roundTop,
+        roundBottom: r.roundBottom,
+        child: _row(
+          context,
+          vpn,
+          r.server,
+          showBottomDivider: !r.roundBottom,
+        ),
+      ),
+    };
+    return item.bottomGap > 0
+        ? Padding(padding: EdgeInsets.only(bottom: item.bottomGap), child: tile)
+        : tile;
+  }
+
+  Widget _emptyStateSliver(String message) => SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40.0),
+      child: Center(
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textFaint),
+        ),
       ),
     ),
   );
@@ -282,7 +286,7 @@ class _ServerListViewState extends State<ServerListView> {
   }
 
   /// The base "12 servers" clause; the reachable count is appended in green by
-  /// [ServerGroupCard] via [_reachable].
+  /// [ServerGroupHeader] via [_reachable].
   String _subtitle(List<VpnServer> servers) {
     final plural = servers.length == 1 ? 'server' : 'servers';
     return '${servers.length} $plural';
@@ -291,7 +295,12 @@ class _ServerListViewState extends State<ServerListView> {
   int _reachable(List<VpnServer> servers) =>
       servers.where((s) => s.ping != null).length;
 
-  Widget _row(BuildContext context, VpnState vpn, VpnServer server) {
+  Widget _row(
+    BuildContext context,
+    VpnState vpn,
+    VpnServer server, {
+    bool showBottomDivider = false,
+  }) {
     return ServerRow(
       server: server,
       isSelected:
@@ -300,46 +309,7 @@ class _ServerListViewState extends State<ServerListView> {
       onTap: () => context.read<VpnBloc>().add(ServerSelected(server)),
       onBookmarkToggle: () =>
           context.read<VpnBloc>().add(BookmarkToggled(server)),
-    );
-  }
-}
-
-/// The speedometer action — pings the bookmarks group.
-class _PingAction extends StatelessWidget {
-  final bool isPinging;
-  final bool isConnected;
-  final VoidCallback onPressed;
-
-  const _PingAction({
-    required this.isPinging,
-    required this.isConnected,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (isPinging) {
-      return const Padding(
-        padding: EdgeInsets.all(12),
-        child: SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppColors.accent,
-          ),
-        ),
-      );
-    }
-    return IconButton(
-      visualDensity: VisualDensity.compact,
-      iconSize: 19,
-      tooltip: isConnected ? 'Disconnect to ping' : 'Ping bookmarks',
-      onPressed: onPressed,
-      icon: Icon(
-        Icons.speed_rounded,
-        color: isConnected ? AppColors.textFaint : AppColors.accent,
-      ),
+      showBottomDivider: showBottomDivider,
     );
   }
 }

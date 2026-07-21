@@ -14,6 +14,11 @@ class ServerRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onBookmarkToggle;
 
+  /// A 1px separator below the row, so adjacent servers in a list read as
+  /// distinct rows rather than one solid block. The last row in a run omits
+  /// it — the card's rounded bottom edge already closes it off.
+  final bool showBottomDivider;
+
   const ServerRow({
     super.key,
     required this.server,
@@ -21,6 +26,7 @@ class ServerRow extends StatelessWidget {
     required this.isBookmarked,
     required this.onTap,
     required this.onBookmarkToggle,
+    this.showBottomDivider = false,
   });
 
   /// Ping is always shown green: every listed server is reachable, and users
@@ -42,6 +48,9 @@ class ServerRow extends StatelessWidget {
                 color: isSelected ? AppColors.accent : Colors.transparent,
                 width: 3,
               ),
+              bottom: showBottomDivider
+                  ? const BorderSide(color: AppColors.divider, width: 1)
+                  : BorderSide.none,
             ),
           ),
           padding: const EdgeInsets.fromLTRB(13, 10, 8, 10),

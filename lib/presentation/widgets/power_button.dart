@@ -8,20 +8,30 @@ import '../theme/app_colors.dart';
 
 /// The hero connect control: a large circular power button with concentric
 /// rings, carrying the status label and the session timer *inside* the ring.
+///
+/// All inner metrics scale off [size] (the outer halo's diameter), keeping the
+/// original proportions at any size.
 class PowerButton extends StatelessWidget {
+  /// The reference design was tuned at a 220px outer halo — every inner ring,
+  /// icon and font size below is expressed relative to it.
+  static const double _referenceSize = 220;
+
   final TunnelStatus status;
   final VoidCallback onToggle;
+  final double size;
 
   const PowerButton({
     super.key,
     required this.status,
     required this.onToggle,
+    this.size = 160,
   });
 
   @override
   Widget build(BuildContext context) {
     final isConnected = status == TunnelStatus.connected;
     final isConnecting = status == TunnelStatus.connecting;
+    final scale = size / _referenceSize;
 
     final (Color color, String label) = switch (status) {
       TunnelStatus.connected => (AppColors.connected, 'CONNECTED'),
@@ -36,15 +46,15 @@ class PowerButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onToggle,
         child: SizedBox(
-          width: 220,
-          height: 220,
+          width: size,
+          height: size,
           child: Stack(
             alignment: Alignment.center,
             children: [
               // Outermost halo.
               Container(
-                width: 220,
-                height: 220,
+                width: size,
+                height: size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: color.withValues(alpha: 0.04),
@@ -56,8 +66,8 @@ class PowerButton extends StatelessWidget {
               ),
               // Glow ring — swells while connecting.
               Container(
-                width: 186,
-                height: 186,
+                width: 186 * scale,
+                height: 186 * scale,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: color.withValues(alpha: 0.06),
@@ -68,16 +78,16 @@ class PowerButton extends StatelessWidget {
                   boxShadow: [
                     BoxShadow(
                       color: color.withValues(alpha: isConnected ? 0.28 : 0.15),
-                      blurRadius: isConnecting ? 30 : 20,
-                      spreadRadius: isConnecting ? 6 : 2,
+                      blurRadius: (isConnecting ? 30 : 20) * scale,
+                      spreadRadius: (isConnecting ? 6 : 2) * scale,
                     ),
                   ],
                 ),
               ),
               // Core, holding the icon + status + timer.
               Container(
-                width: 156,
-                height: 156,
+                width: 156 * scale,
+                height: 156 * scale,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.statusButtonCore,
@@ -91,20 +101,20 @@ class PowerButton extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.power_settings_new_rounded,
-                      size: 40,
+                      size: 40 * scale,
                       color: color,
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10 * scale),
                     Text(
                       label,
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.4,
-                        fontSize: 11,
+                        fontSize: 11 * scale,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2 * scale),
                     BlocBuilder<ConnectionBloc, VpnConnectionState>(
                       buildWhen: (previous, current) =>
                           previous.duration != current.duration ||
@@ -113,8 +123,8 @@ class PowerButton extends StatelessWidget {
                         conn.isConnected
                             ? Formatters.duration(conn.duration)
                             : '00:00:00',
-                        style: const TextStyle(
-                          fontSize: 15,
+                        style: TextStyle(
+                          fontSize: 15 * scale,
                           fontWeight: FontWeight.w300,
                           letterSpacing: 1.2,
                           color: AppColors.textSecondary,

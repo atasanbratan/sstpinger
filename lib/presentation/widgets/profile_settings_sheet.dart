@@ -250,7 +250,7 @@ class ProfileSettingsSheet extends StatelessWidget {
 
   Widget _buildPingSettingsCard(BuildContext context, VpnState vpn) {
     final seconds = vpn.pingTimeoutSeconds.clamp(0.5, 5.0);
-    final batch = vpn.pingBatchSize.clamp(5, 100);
+    final batch = vpn.pingBatchSize.clamp(5, 300);
     final bloc = context.read<VpnBloc>();
 
     return Card(
@@ -314,8 +314,8 @@ class ProfileSettingsSheet extends StatelessWidget {
             Slider(
               value: batch.toDouble(),
               min: 5,
-              max: 100,
-              divisions: 19,
+              max: 300,
+              divisions: 59,
               activeColor: AppColors.accentSecondary,
               label: '$batch',
               onChanged: (v) => bloc.add(PingBatchSizeChanged(v.round())),
@@ -626,42 +626,34 @@ class ProfileSettingsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<VpnBloc, VpnState>(
-      builder: (context, vpn) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        title: const Text(
+          'SETTINGS & PROFILE',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            color: Colors.white,
           ),
-          child: SingleChildScrollView(
+        ),
+      ),
+      body: BlocBuilder<VpnBloc, VpnState>(
+        builder: (context, vpn) {
+          return SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              left: 20,
+              right: 20,
+              top: 12,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'SETTINGS & PROFILE',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 24),
                 const Text(
                   'USER PROFILE',
                   style: TextStyle(
@@ -978,9 +970,9 @@ class ProfileSettingsSheet extends StatelessWidget {
                 const SizedBox(height: 30),
               ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

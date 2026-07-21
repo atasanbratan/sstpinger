@@ -68,7 +68,14 @@ class MobileTunnelDataSource implements TunnelDataSource {
           verifySSLCert: false,
           useTrustedCert: false,
           sslVersion: SSLVersions.TLsv1_3,
-          showDisconnectOnNotification: true,
+          // Android requires a foreground-service notification for an active
+          // VpnService — that can't be suppressed — but its Disconnect button
+          // tears the tunnel down natively, bypassing ConnectionBloc entirely.
+          // That left `_intentionalDisconnect` unset, so the bloc treated it
+          // as an unexpected drop and auto-reconnected. Dropping the button
+          // here leaves a plain status notification; VpnNotificationService's
+          // own notification is now the only one with a working Disconnect.
+          showDisconnectOnNotification: false,
           notificationText: 'Connected to ${config.label}',
         ),
         iosConfiguration: SSTPIOSConfiguration(
