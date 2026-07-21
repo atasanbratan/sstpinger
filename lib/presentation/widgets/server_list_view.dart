@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../core/utils/country_flag.dart';
 import '../../domain/entities/vpn_server.dart';
 import '../bloc/connection/connection_bloc.dart';
 import '../bloc/vpn/vpn_bloc.dart';
 import '../theme/app_colors.dart';
-import 'rounded_list_tile.dart';
-import 'server_group_header.dart';
+import 'server_list/empty_state_sliver.dart';
+import 'server_list/server_grouping.dart';
+import 'server_list/server_list_tile.dart';
 import 'server_list_item.dart';
 import 'server_ping_action.dart';
-import 'server_row.dart';
 import 'server_tab_bar.dart';
 
 /// The server picker: a scroll owner (so the list can be virtualized) holding
@@ -102,7 +101,7 @@ class _ServerListViewState extends State<ServerListView> {
         return _buildFlatList(
           context,
           vpn,
-          _filter(vpn.bookmarkedServers, query),
+          filterByQuery(vpn.bookmarkedServers, query),
           empty: 'No bookmarks yet.\nTap the bookmark icon on a server to pin it.',
           pingAction: PingAction(
             isPinging: vpn.isPinging,
@@ -116,7 +115,7 @@ class _ServerListViewState extends State<ServerListView> {
         return _buildFlatList(
           context,
           vpn,
-          _filter(vpn.recentServers, query),
+          filterByQuery(vpn.recentServers, query),
           empty: 'No recent servers yet.\nConnect to a server and it will show here.',
         );
     }
@@ -127,32 +126,21 @@ class _ServerListViewState extends State<ServerListView> {
   List<Widget> _buildServersTab(BuildContext context, VpnState vpn) {
     final filtered = vpn.filteredServers;
     if (filtered.isEmpty) {
-      return [_emptyStateSliver('No servers match your search filter.')];
+      return [const EmptyStateSliver('No servers match your search filter.')];
     }
 
     if (vpn.serversFlatView) {
-      // One flat list, fastest first; unreachable (no ping) sink to the bottom.
-      final sorted = List<VpnServer>.from(filtered)
-        ..sort((a, b) => (a.ping ?? 1 << 30).compareTo(b.ping ?? 1 << 30));
-      return [_itemsSliver(context, vpn, _flatItems(sorted))];
+      return [_itemsSliver(context, vpn, _flatItems(sortedByPing(filtered)))];
     }
 
-    // Group by country, preserving arrival order so a ping-sorted list keeps its
-    // fastest-first ordering inside each group.
-    final grouped = <String, List<VpnServer>>{};
-    for (final server in filtered) {
-      grouped.putIfAbsent(server.country, () => []).add(server);
-    }
-    final countries = grouped.keys.toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
+    final grouped = groupByCountry(filtered);
     final items = <ServerListItem>[];
-    for (final country in countries) {
-      final servers = grouped[country]!;
-      final expanded = _expanded.contains(country);
+    for (final entry in grouped.entries) {
+      final servers = entry.value;
+      final expanded = _expanded.contains(entry.key);
       items.add(
         ServerHeaderItem(
-          country: country,
+          country: entry.key,
           servers: servers,
           isExpanded: expanded,
           bottomGap: expanded ? 0 : _groupGap,
@@ -182,7 +170,7 @@ class _ServerListViewState extends State<ServerListView> {
     required String empty,
     Widget? pingAction,
   }) {
-    if (servers.isEmpty) return [_emptyStateSliver(empty)];
+    if (servers.isEmpty) return [EmptyStateSliver(empty)];
     return [
       if (pingAction != null)
         SliverPadding(
@@ -214,102 +202,15 @@ class _ServerListViewState extends State<ServerListView> {
       padding: const EdgeInsets.symmetric(horizontal: 18),
       sliver: SliverList.builder(
         itemCount: items.length,
-        itemBuilder: (context, index) =>
-            _buildItem(context, vpn, items[index]),
-      ),
-    );
-  }
-
-  Widget _buildItem(BuildContext context, VpnState vpn, ServerListItem item) {
-    final tile = switch (item) {
-      ServerHeaderItem h => ServerGroupHeader(
-        leading: Container(
-          width: 30,
-          height: 30,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.surfaceDeep,
-          ),
-          child: Text(
-            countryFlagEmoji(h.servers.first.countryShort),
-            style: const TextStyle(fontSize: 15),
-          ),
-        ),
-        title: h.country.toUpperCase(),
-        subtitle: _subtitle(h.servers),
-        reachable: _reachable(h.servers),
-        isExpanded: h.isExpanded,
-        roundBottom: !h.isExpanded,
-        onToggle: () => _toggle(h.country),
-      ),
-      ServerRowItem r => RoundedListTile(
-        roundTop: r.roundTop,
-        roundBottom: r.roundBottom,
-        child: _row(
-          context,
-          vpn,
-          r.server,
-          showBottomDivider: !r.roundBottom,
+        itemBuilder: (context, index) => ServerListTile(
+          item: items[index],
+          vpn: vpn,
+          onToggleGroup: _toggle,
+          onSelectServer: (s) => context.read<VpnBloc>().add(ServerSelected(s)),
+          onToggleBookmark: (s) =>
+              context.read<VpnBloc>().add(BookmarkToggled(s)),
         ),
       ),
-    };
-    return item.bottomGap > 0
-        ? Padding(padding: EdgeInsets.only(bottom: item.bottomGap), child: tile)
-        : tile;
-  }
-
-  Widget _emptyStateSliver(String message) => SliverToBoxAdapter(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40.0),
-      child: Center(
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.textFaint),
-        ),
-      ),
-    ),
-  );
-
-  /// Filters a curated list (bookmarks/recents) by the active search query.
-  List<VpnServer> _filter(List<VpnServer> servers, String query) {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return servers;
-    return servers
-        .where(
-          (s) =>
-              s.country.toLowerCase().contains(q) ||
-              s.hostname.toLowerCase().contains(q),
-        )
-        .toList();
-  }
-
-  /// The base "12 servers" clause; the reachable count is appended in green by
-  /// [ServerGroupHeader] via [_reachable].
-  String _subtitle(List<VpnServer> servers) {
-    final plural = servers.length == 1 ? 'server' : 'servers';
-    return '${servers.length} $plural';
-  }
-
-  int _reachable(List<VpnServer> servers) =>
-      servers.where((s) => s.ping != null).length;
-
-  Widget _row(
-    BuildContext context,
-    VpnState vpn,
-    VpnServer server, {
-    bool showBottomDivider = false,
-  }) {
-    return ServerRow(
-      server: server,
-      isSelected:
-          !vpn.useCustomConfig && vpn.selectedServer?.endpoint == server.endpoint,
-      isBookmarked: vpn.isBookmarked(server),
-      onTap: () => context.read<VpnBloc>().add(ServerSelected(server)),
-      onBookmarkToggle: () =>
-          context.read<VpnBloc>().add(BookmarkToggled(server)),
-      showBottomDivider: showBottomDivider,
     );
   }
 }

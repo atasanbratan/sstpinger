@@ -20,10 +20,13 @@ import '../theme/app_colors.dart';
 import '../widgets/apk_download_sheet.dart';
 import '../widgets/app_update_banner.dart';
 import '../widgets/app_update_dialog.dart';
-import '../widgets/power_button.dart';
 import '../widgets/profile_settings_sheet.dart';
 import '../widgets/server_list_view.dart';
 import 'activation_screen.dart';
+import 'main_vpn_screen/connection_hero.dart';
+import 'main_vpn_screen/edit_username_dialog.dart';
+import 'main_vpn_screen/main_vpn_app_bar.dart';
+import 'main_vpn_screen/servers_header_block.dart';
 import 'subscription_screen.dart';
 
 class MainVpnScreen extends StatefulWidget {
@@ -424,41 +427,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   }
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: AppColors.background,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.settings_outlined, color: Colors.white70),
-        tooltip: 'Settings / Profile',
-        onPressed: _showProfileAndSettingsModal,
-      ),
-      title: Row(
-        children: [
-          Image.asset('assets/logo/logo.png', width: 24, height: 24),
-          const SizedBox(width: 8),
-          Text(
-            'SSTP SHIELD',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              letterSpacing: 2,
-              fontSize: 17,
-            ),
-          ),
-          if (_version.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Text(
-                'v$_version',
-                style: const TextStyle(
-                  color: AppColors.textFaint,
-                  fontSize: 11,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
+    return MainVpnAppBar(
+      version: _version,
+      onSettingsTap: _showProfileAndSettingsModal,
     );
   }
 
@@ -504,16 +475,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
   /// The power button and the node it will use.
   Widget _buildHero(BuildContext context, VpnState vpn) {
-    return BlocBuilder<ConnectionBloc, VpnConnectionState>(
-      builder: (context, conn) => Column(
-        children: [
-          PowerButton(
-            status: conn.status,
-            onToggle: () => _toggleConnection(vpn, conn.isConnected),
-          ),
-        ],
-      ),
-    );
+    return ConnectionHero(vpn: vpn, onToggle: _toggleConnection);
   }
 
   /// The server picker: header/search/ping-progress ride as the scrolling
@@ -523,214 +485,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   Widget _buildServersSection(BuildContext context, VpnState vpn) {
     return ServerListView(
       scrollController: _scrollController,
-      header: _buildServersHeaderBlock(vpn),
+      header: ServersHeaderBlock(vpn: vpn, searchController: _searchController),
     );
   }
-
-  Widget _buildServersHeaderBlock(VpnState vpn) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildServersHeader(vpn),
-        const SizedBox(height: 10),
-        _buildSearchRow(vpn),
-        if (vpn.isPinging) ...[
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: vpn.pingTotal == 0 ? null : vpn.pingProgress / vpn.pingTotal,
-              minHeight: 3,
-              backgroundColor: AppColors.surface,
-              valueColor: const AlwaysStoppedAnimation(AppColors.accent),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildServersHeader(VpnState vpn) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        const Text(
-          'Servers',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        _buildServerCount(vpn),
-      ],
-    );
-  }
-
-  /// Right-aligned count: "N available", plus a green "· M reachable" clause once
-  /// servers have been pinged. Shows ping progress while a ping is running.
-  Widget _buildServerCount(VpnState vpn) {
-    if (vpn.isPinging) {
-      return Text(
-        'Pinging ${vpn.pingProgress}/${vpn.pingTotal} · ${vpn.pingPercent}%',
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: AppColors.accent,
-        ),
-      );
-    }
-
-    final servers = vpn.filteredServers;
-    final reachable = servers.where((s) => s.ping != null).length;
-    return Text.rich(
-      TextSpan(
-        style: const TextStyle(fontSize: 12, color: AppColors.textFaint),
-        children: [
-          TextSpan(text: '${servers.length} available'),
-          if (reachable > 0)
-            TextSpan(
-              text: ' · $reachable reachable',
-              style: const TextStyle(
-                color: AppColors.pingGood,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Search field with the ping-all action beside it, as in Happ's server pane.
-  Widget _buildSearchRow(VpnState vpn) {
-    return BlocBuilder<ConnectionBloc, VpnConnectionState>(
-      builder: (context, conn) => Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: 'Type here to search',
-                hintStyle: const TextStyle(color: AppColors.textFaint),
-                suffixIcon: vpn.searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(
-                          Icons.clear_rounded,
-                          color: AppColors.textMuted,
-                          size: 18,
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                          context.read<VpnBloc>().add(
-                            const SearchQueryChanged(''),
-                          );
-                        },
-                      )
-                    : const Icon(
-                        Icons.search_rounded,
-                        color: AppColors.textMuted,
-                        size: 20,
-                      ),
-                filled: true,
-                fillColor: AppColors.inputBackground,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 14,
-                  horizontal: 16,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.divider),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.divider),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.accentBorder),
-                ),
-              ),
-              onChanged: (q) =>
-                  context.read<VpnBloc>().add(SearchQueryChanged(q)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Ping every server and sort fastest-first.
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.inputBackground,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: IconButton(
-              iconSize: 20,
-              tooltip: conn.isConnected
-                  ? 'Disconnect to ping servers'
-                  : 'Ping all and sort',
-              onPressed: vpn.isPinging
-                  ? null
-                  : () => context.read<VpnBloc>().add(
-                      PingRequested(isConnected: conn.isConnected),
-                    ),
-              icon: vpn.isPinging
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.accent,
-                      ),
-                    )
-                  : Icon(
-                      Icons.speed_rounded,
-                      color: conn.isConnected
-                          ? AppColors.textFaint
-                          : AppColors.accent,
-                    ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Fetch the latest server list from the backend.
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.inputBackground,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.divider),
-            ),
-            child: IconButton(
-              iconSize: 20,
-              tooltip: 'Fetch latest servers',
-              onPressed: vpn.isFetchingServers
-                  ? null
-                  : () => context.read<VpnBloc>().add(
-                      const ServersFetchRequested(),
-                    ),
-              icon: vpn.isFetchingServers
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.accent,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.download_rounded,
-                      color: AppColors.accent,
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
 
   void _openSubscription() {
     Navigator.of(context).push(
@@ -811,53 +568,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   }
 
   void _promptEditUsername() {
-    final controller = TextEditingController(
-      text: context.read<VpnBloc>().state.username,
-    );
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: const Text(
-            'Change Username',
-            style: TextStyle(color: Colors.white, fontFamily: 'Outfit'),
-          ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              hintText: 'Enter new username',
-              hintStyle: TextStyle(color: Colors.white38),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: AppColors.accent),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text(
-                'CANCEL',
-                style: TextStyle(color: Colors.white54),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                if (controller.text.trim().isNotEmpty) {
-                  context.read<VpnBloc>().add(UsernameChanged(controller.text));
-                  Navigator.pop(dialogContext);
-                }
-              },
-              child: const Text(
-                'SAVE',
-                style: TextStyle(color: AppColors.accent),
-              ),
-            ),
-          ],
-        );
-      },
+    showEditUsernameDialog(
+      context,
+      currentUsername: context.read<VpnBloc>().state.username,
+      onSave: (username) =>
+          context.read<VpnBloc>().add(UsernameChanged(username)),
     );
   }
 }

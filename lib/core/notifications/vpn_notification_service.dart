@@ -7,8 +7,9 @@ import '../../domain/entities/tunnel_traffic.dart';
 import '../utils/formatters.dart';
 
 /// Shows a live, ongoing "connected" notification (duration + up/down speed)
-/// with a Disconnect action — the way most VPN clients surface connection
-/// status without the user needing to reopen the app.
+/// with a Disconnect action. Tapping Disconnect reopens the app (see the
+/// showsUserInterface note on the action below) so the tap is guaranteed to
+/// reach ConnectionBloc rather than tearing down the tunnel natively.
 ///
 /// Android only for now. `sstp_flutter` (the mobile tunnel plugin) already
 /// posts its own OS-mandated foreground-service notification with a working
@@ -90,7 +91,15 @@ class VpnNotificationService {
             AndroidNotificationAction(
               _disconnectActionId,
               'Disconnect',
-              showsUserInterface: false,
+              // Actions that don't show the UI are delivered to a separate
+              // background isolate that has no access to ConnectionBloc, so
+              // disconnecting from there would bypass _intentionalDisconnect
+              // tracking and could trigger an unwanted auto-reconnect (the
+              // exact bug showDisconnectOnNotification:false works around on
+              // the plugin's own notification). Showing the UI keeps the tap
+              // on the main isolate's onDidReceiveNotificationResponse, so it
+              // reliably reaches the bloc.
+              showsUserInterface: true,
               cancelNotification: false,
             ),
           ],
