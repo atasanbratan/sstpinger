@@ -1,4 +1,4 @@
-package com.atasanbratan.sstp_shield
+package com.sstppinger.sstp_shield
 
 import io.flutter.embedding.android.FlutterActivity
 
