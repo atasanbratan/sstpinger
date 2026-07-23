@@ -4,7 +4,7 @@
 /// source builds against a dev/prod backend without code edits:
 ///
 ///   flutter build apk --flavor standard --target lib/main.dart \
-///     --dart-define=API_BASE_URL=https://sstp-shield.vercel.app \
+///     --dart-define=API_BASE_URL=https://sstp-shield-server.vercel.app \
 ///     --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com
 ///
 /// The new backend is the Go service on Vercel (see ../../../sstp_shield_server),
@@ -15,7 +15,7 @@ class BackendConfig {
   /// Base URL of the Go/Vercel backend, no trailing slash.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://sstp-shield.vercel.app',
+    defaultValue: 'https://sstp-shield-server.vercel.app',
   );
 
   /// The **Web** OAuth client ID used as `serverClientId` for Google Sign-In, so
