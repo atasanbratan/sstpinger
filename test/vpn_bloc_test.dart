@@ -11,6 +11,7 @@ import 'package:sstp_shield/domain/usecases/import_activation.dart';
 import 'package:sstp_shield/domain/usecases/load_cached_servers.dart';
 import 'package:sstp_shield/domain/usecases/ping_servers.dart';
 import 'package:sstp_shield/domain/usecases/refresh_servers.dart';
+import 'package:sstp_shield/domain/usecases/sign_in_with_google.dart';
 import 'package:sstp_shield/domain/usecases/start_free_trial.dart';
 import 'package:sstp_shield/domain/usecases/subscribe_with_crypto.dart';
 import 'package:sstp_shield/presentation/bloc/vpn/vpn_bloc.dart';
@@ -36,6 +37,9 @@ void main() {
     when(() => subs.getOrCreateDeviceId()).thenAnswer((_) async => 'device');
     when(() => subs.loadSubscription())
         .thenAnswer((_) async => const Subscription());
+    when(() => subs.hasSession()).thenAnswer((_) async => false);
+    when(() => subs.getAccountEmail()).thenAnswer((_) async => '');
+    when(() => subs.isGoogleSignInSupported).thenReturn(false);
     when(() => settings.getPingTimeoutMs()).thenAnswer((_) async => 1500);
     when(() => settings.getPingBatchSize()).thenAnswer((_) async => 25);
     when(() => settings.getReconnectRetryCount()).thenAnswer((_) async => 3);
@@ -88,6 +92,7 @@ void main() {
     importActivation: ImportActivation(subs, serverRepo),
     startFreeTrial: StartFreeTrial(subs, serverRepo),
     subscribeWithCrypto: SubscribeWithCrypto(subs, serverRepo),
+    signInWithGoogle: SignInWithGoogle(subs),
     serverRepository: serverRepo,
     subscriptionRepository: subs,
     settingsRepository: settings,

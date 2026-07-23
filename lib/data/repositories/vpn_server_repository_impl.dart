@@ -28,8 +28,10 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
   Future<List<VpnServer>> fetchServers() async {
     final username = await _prefs.getUsername();
     final deviceId = await _prefs.getOrCreateDeviceId();
+    final sessionToken = await _prefs.getSessionToken();
 
-    if (username.isEmpty || deviceId.isEmpty) {
+    // Need an identity: either a Google session token or a legacy username.
+    if ((username.isEmpty && sessionToken.isEmpty) || deviceId.isEmpty) {
       _cached = [];
       await _prefs.saveServersWithPing(_cached);
       return [];
@@ -38,6 +40,7 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
     final response = await _remote.fetchVpnServers(
       username: username,
       deviceId: deviceId,
+      sessionToken: sessionToken.isEmpty ? null : sessionToken,
       count: await _prefs.getFetchServerCount(),
       pool: await _resolvePool(),
     );
@@ -82,10 +85,12 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
     final username = await _prefs.getUsername();
     final deviceId = await _prefs.getOrCreateDeviceId();
 
+    final sessionToken = await _prefs.getSessionToken();
     final old = await _prefs.loadServersWithPing();
     final response = await _remote.fetchVpnServers(
       username: username,
       deviceId: deviceId,
+      sessionToken: sessionToken.isEmpty ? null : sessionToken,
       count: await _prefs.getFetchServerCount(),
       pool: await _resolvePool(),
     );

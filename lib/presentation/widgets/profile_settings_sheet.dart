@@ -17,6 +17,7 @@ import '../screens/settings/ping_settings_screen.dart';
 import '../screens/settings/proxy_sharing_screen.dart';
 import '../screens/settings/protocol_screen.dart';
 import '../screens/settings/reconnect_settings_screen.dart';
+import '../screens/settings/sessions_screen.dart';
 import '../screens/settings/softether_natt_screen.dart';
 import '../screens/settings/static_info_screen.dart';
 import '../theme/app_colors.dart';
@@ -150,6 +151,31 @@ class ProfileSettingsSheet extends StatelessWidget {
                       title: 'Server list last updated',
                       trailingText: Formatters.date(vpn.lastFetchTime),
                     ),
+                    if (vpn.hasSession)
+                      SettingsRow(
+                        icon: Icons.account_circle_outlined,
+                        iconColor: AppColors.accent,
+                        title: 'Google account',
+                        trailingText: vpn.email,
+                      ),
+                    if (vpn.hasSession)
+                      SettingsRow(
+                        icon: Icons.devices_outlined,
+                        title: 'Active sessions',
+                        subtitle: 'Manage devices signed in to your account',
+                        showChevron: true,
+                        onTap: () => _push(context, const SessionsScreen()),
+                      ),
+                    if (vpn.hasSession)
+                      SettingsRow(
+                        icon: Icons.logout,
+                        iconColor: AppColors.error,
+                        title: 'Sign out',
+                        onTap: () {
+                          context.read<VpnBloc>().add(const SignOutRequested());
+                          Navigator.of(context).popUntil((r) => r.isFirst);
+                        },
+                      ),
                   ],
                 ),
                 const SizedBox(height: 12),

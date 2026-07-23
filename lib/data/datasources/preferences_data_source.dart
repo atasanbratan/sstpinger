@@ -17,6 +17,10 @@ import '../dto/vpn_server_dto.dart';
 class PreferencesDataSource {
   static const String _keyUsername = 'username';
   static const String _keyDeviceId = 'device_id';
+  // Google Sign-In identity: the opaque bearer session token minted by the
+  // backend's /api/auth/google, and the signed-in account email (display only).
+  static const String _keySessionToken = 'session_token';
+  static const String _keyAccountEmail = 'account_email';
   static const String _keyExpireTime = 'subscription_expire_time';
   static const String _keyLastFetch = 'servers_last_fetch';
   static const String _keyPingTimeoutMs = 'ping_timeout_ms';
@@ -75,6 +79,33 @@ class PreferencesDataSource {
   Future<void> saveUsername(String username) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyUsername, username.trim());
+  }
+
+  /// The backend session bearer token (empty when not signed in with Google).
+  Future<String> getSessionToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keySessionToken) ?? '';
+  }
+
+  Future<void> saveSession({
+    required String token,
+    required String email,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keySessionToken, token);
+    await prefs.setString(_keyAccountEmail, email);
+  }
+
+  Future<String> getAccountEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyAccountEmail) ?? '';
+  }
+
+  /// Clears the Google/session identity (used on sign-out).
+  Future<void> clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keySessionToken);
+    await prefs.remove(_keyAccountEmail);
   }
 
   Future<String> getOrCreateDeviceId() async {

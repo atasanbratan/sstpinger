@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../../data/datasources/google_auth_service.dart';
 import '../../data/datasources/preferences_data_source.dart';
 import '../../data/datasources/socks5_proxy_data_source.dart';
 import '../../data/datasources/tcp_ping_service.dart';
@@ -21,6 +22,7 @@ import '../../domain/usecases/import_activation.dart';
 import '../../domain/usecases/load_cached_servers.dart';
 import '../../domain/usecases/ping_servers.dart';
 import '../../domain/usecases/refresh_servers.dart';
+import '../../domain/usecases/sign_in_with_google.dart';
 import '../../domain/usecases/start_free_trial.dart';
 import '../../domain/usecases/subscribe_with_crypto.dart';
 import '../../domain/usecases/watch_tunnel.dart';
@@ -60,11 +62,12 @@ class AppDependencies {
     // subscription and settings repositories.
     final prefs = PreferencesDataSource();
     final remote = VpnRemoteDataSource();
+    final google = GoogleAuthService();
 
     return AppDependencies._(
       tunnel: TunnelControllerImpl.forPlatform(),
       serverRepository: VpnServerRepositoryImpl(remote, prefs),
-      subscriptionRepository: SubscriptionRepositoryImpl(remote, prefs),
+      subscriptionRepository: SubscriptionRepositoryImpl(remote, prefs, google),
       settingsRepository: SettingsRepositoryImpl(prefs),
       pingService: const TcpPingService(),
       proxySharing:
@@ -91,6 +94,7 @@ class AppDependencies {
     startFreeTrial: StartFreeTrial(subscriptionRepository, serverRepository),
     subscribeWithCrypto:
         SubscribeWithCrypto(subscriptionRepository, serverRepository),
+    signInWithGoogle: SignInWithGoogle(subscriptionRepository),
     serverRepository: serverRepository,
     subscriptionRepository: subscriptionRepository,
     settingsRepository: settingsRepository,

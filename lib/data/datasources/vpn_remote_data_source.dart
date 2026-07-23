@@ -5,9 +5,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
+import '../../core/config/backend_config.dart';
 import '../../domain/entities/app_update_info.dart';
+import '../../domain/entities/auth_session.dart';
+import '../../domain/entities/user_session.dart';
 import '../../domain/entities/vpn_server.dart';
 import '../../domain/failures/failures.dart';
+import '../dto/user_session_dto.dart';
 import '../dto/vpn_server_dto.dart';
 
 /// Result of a successful server fetch: the server list, the subscription
@@ -25,20 +29,19 @@ class VpnServersResponse {
   });
 }
 
-/// The backend HTTP client (Google Apps Script endpoint). Speaks JSON in, opaque
-/// base64 activation blobs out; maps transport and backend errors to the domain
-/// [ApiException] / [SubscriptionExpiredException].
+/// The backend HTTP client for the Go/Vercel service (see
+/// ../../../../sstp_shield_server). Speaks JSON in; JSON out for most calls and
+/// opaque base64 activation blobs for trial/subscribe. Maps transport and
+/// backend errors to the domain [ApiException] / [SubscriptionExpiredException].
+///
+/// Auth is either a Google bearer **session token** (`Authorization: Bearer …`)
+/// or the legacy `username`+`deviceId` pair — the backend accepts both, so
+/// activation-code users keep working.
 class VpnRemoteDataSource {
   final Dio _dio;
 
-  // The single canonical Apps Script deployment — the same one the admin console
-  // uses. Keep both apps on one deployment: `clasp deploy` without
-  // --deploymentId mints a NEW url, which silently leaves one app on stale code.
-  // Redeploy with:  clasp deploy --deploymentId <id>
-  static const String _url =
-      'https://script.google.com/macros/s/AKfycbzrQzAdmh0rfqEW6c7rWT5h4aRZruAaMZOp6l6nxhw6oxyWS8ZIh6MIgaBnqHoJ7e9UEg/exec';
-
-  VpnRemoteDataSource({Dio? dio}) : _dio = dio ?? Dio() {
+  VpnRemoteDataSource({Dio? dio})
+      : _dio = dio ?? Dio(BaseOptions(baseUrl: BackendConfig.baseUrl)) {
     if (kDebugMode) {
       _dio.interceptors.add(
         PrettyDioLogger(
@@ -55,63 +58,89 @@ class VpnRemoteDataSource {
     }
   }
 
-  /// Which of the backend's per-platform device slots (see the backend's
-  /// src/core/Devices.js) this build binds to. Null on any platform the
-  /// backend doesn't have a slot for (iOS/macOS/web) — the backend falls
-  /// back to its pre-multi-device single-slot behavior when this is absent.
+  /// This platform's identifier, sent so the backend can label the session.
+  /// Null on platforms with no obvious tag (web); harmless when absent.
   String? get _platform {
     if (Platform.isAndroid) return 'android';
+    if (Platform.isIOS) return 'ios';
     if (Platform.isWindows) return 'windows';
     if (Platform.isLinux) return 'linux';
+    if (Platform.isMacOS) return 'macos';
     return null;
+  }
+
+  Options _authOptions(String? sessionToken) => Options(
+        contentType: Headers.jsonContentType,
+        validateStatus: (status) => status != null && status < 500,
+        headers: {
+          if (sessionToken != null && sessionToken.isNotEmpty)
+            'Authorization': 'Bearer $sessionToken',
+        },
+      );
+
+  /// Exchanges a Google ID token for a backend session token and the account's
+  /// current subscription window. POST /api/auth/google.
+  Future<({String sessionToken, AuthSession session})> authGoogle({
+    required String idToken,
+    required String deviceId,
+  }) async {
+    try {
+      final response = await _dio.post<String>(
+        '/api/auth/google',
+        data: {
+          'idToken': idToken,
+          'deviceId': deviceId,
+          if (_platform != null) 'platform': _platform,
+        },
+        options: _authOptions(null),
+      );
+      final decoded = _decodeJson(response.data);
+      _throwIfFailure(decoded);
+      final token = decoded['sessionToken']?.toString() ?? '';
+      if (token.isEmpty) {
+        throw const ApiException('Sign-in failed: no session token returned.');
+      }
+      return (
+        sessionToken: token,
+        session: AuthSession(
+          email: decoded['email']?.toString() ?? '',
+          expireTime: _parseExpireTime(decoded['expireTime']),
+        ),
+      );
+    } on DioException catch (e) {
+      throw _apiExceptionFromDio(e);
+    } on FormatException {
+      throw const ApiException(
+        'Received an invalid response from the server. Please try again.',
+      );
+    }
   }
 
   Future<VpnServersResponse> fetchVpnServers({
     required String username,
     required String deviceId,
+    String? sessionToken,
     int? count,
     String? pool,
   }) async {
+    // With a session token the backend authenticates by bearer and ignores the
+    // username; the legacy path sends username+deviceId+platform in the body.
     final Map<String, dynamic> payload = {
       'deviceId': deviceId,
-      'username': username,
+      if (sessionToken == null || sessionToken.isEmpty) 'username': username,
       'pool': ?pool,
       'count': ?count,
       if (_platform != null) 'platform': _platform,
     };
 
     try {
-      Response<String> response = await _dio.post(
-        _url,
-        queryParameters: payload,
+      final response = await _dio.post<String>(
+        '/api/servers',
         data: payload,
-        options: Options(
-          contentType: Headers.jsonContentType,
-          followRedirects: false, // Manually handle redirect hop
-          validateStatus: (status) => status! < 500,
+        options: _authOptions(sessionToken).copyWith(
           connectTimeout: const Duration(seconds: 40),
         ),
       );
-
-      String? redirectUrl;
-
-      if (response.headers['location'] != null &&
-          response.headers['location']!.isNotEmpty) {
-        redirectUrl = response.headers['location']!.first;
-      } else if (response.data != null &&
-          response.data.toString().contains('href="')) {
-        final dataStr = response.data.toString();
-        final regExp = RegExp(r'href="([^"]+)"');
-        final match = regExp.firstMatch(dataStr);
-        if (match != null) {
-          redirectUrl = match.group(1)?.replaceAll('&amp;', '&');
-        }
-      }
-
-      if (redirectUrl != null) {
-        final finalResponse = await _dio.get<String>(redirectUrl);
-        response = finalResponse;
-      }
 
       if (response.statusCode != 200) {
         throw ApiException(
@@ -120,19 +149,8 @@ class VpnRemoteDataSource {
         );
       }
 
-      final Map<String, dynamic> decoded = jsonDecode(response.data ?? "");
-
-      if (decoded['success'] != true) {
-        if (decoded['code'] == 'SUBSCRIPTION_EXPIRED') {
-          throw SubscriptionExpiredException(
-            decoded['error']?.toString() ?? 'Your subscription has expired.',
-          );
-        }
-        throw ApiException(
-          decoded['error']?.toString() ??
-              'The server rejected the request. Please try again.',
-        );
-      }
+      final decoded = _decodeJson(response.data);
+      _throwIfFailure(decoded);
 
       final list = decoded['data'] as List<dynamic>? ?? [];
       return VpnServersResponse(
@@ -149,64 +167,17 @@ class VpnRemoteDataSource {
     }
   }
 
-  /// Starts the one-time free trial for the foreign variant. Returns the same
-  /// base64 activation blob the app imports.
-  Future<String> startTrial({
-    required String username,
-    required String deviceId,
-  }) {
-    return _activationRequest({
-      'action': 'trial',
-      'username': username,
-      'deviceId': deviceId,
-    });
-  }
-
-  /// Submits a crypto payment for the foreign variant. The backend verifies the
-  /// transaction on-chain and, on success, returns a base64 activation blob.
-  Future<String> subscribe({
-    required String username,
-    required String deviceId,
-    required String network,
-    required String txHash,
-  }) {
-    return _activationRequest({
-      'action': 'subscribe',
-      'username': username,
-      'deviceId': deviceId,
-      'network': network,
-      'txHash': txHash,
-    });
-  }
-
-  /// Hits an activation endpoint (trial/subscribe) that returns an opaque base64
-  /// blob on success or a JSON error object on failure.
-  Future<String> _activationRequest(Map<String, String> query) async {
+  /// Lists the signed-in account's registered sessions. GET /api/sessions.
+  Future<List<UserSession>> listSessions({required String sessionToken}) async {
     try {
-      final response = await _dio.get<String>(_url, queryParameters: query);
-      final body = (response.data ?? '').trim();
-
-      // A JSON object means the backend rejected the request; the success path
-      // returns an opaque base64 blob (no leading brace).
-      if (body.startsWith('{')) {
-        final decoded = jsonDecode(body) as Map<String, dynamic>;
-        if (decoded['success'] == false) {
-          if (decoded['code'] == 'SUBSCRIPTION_EXPIRED') {
-            throw SubscriptionExpiredException(
-              decoded['error']?.toString() ?? 'Your subscription has expired.',
-            );
-          }
-          throw ApiException(
-            decoded['error']?.toString() ??
-                'The request could not be completed. Please try again.',
-          );
-        }
-      }
-
-      if (body.isEmpty) {
-        throw const ApiException('Empty response from the server.');
-      }
-      return body;
+      final response = await _dio.get<String>(
+        '/api/sessions',
+        options: _authOptions(sessionToken),
+      );
+      final decoded = _decodeJson(response.data);
+      _throwIfFailure(decoded);
+      final list = decoded['sessions'] as List<dynamic>? ?? [];
+      return UserSessionDto.listFromJson(list);
     } on DioException catch (e) {
       throw _apiExceptionFromDio(e);
     } on FormatException {
@@ -214,6 +185,112 @@ class VpnRemoteDataSource {
         'Received an invalid response from the server. Please try again.',
       );
     }
+  }
+
+  /// Revokes one of the account's own sessions. DELETE /api/sessions/{id}.
+  Future<void> revokeSession({
+    required String sessionToken,
+    required int id,
+  }) async {
+    try {
+      final response = await _dio.delete<String>(
+        '/api/sessions/$id',
+        options: _authOptions(sessionToken),
+      );
+      _throwIfFailure(_decodeJson(response.data));
+    } on DioException catch (e) {
+      throw _apiExceptionFromDio(e);
+    } on FormatException {
+      throw const ApiException(
+        'Received an invalid response from the server. Please try again.',
+      );
+    }
+  }
+
+  /// Starts the one-time free trial. Attaches to the Google account when a
+  /// session token is present, else to the legacy username+device. POST
+  /// /api/trial → base64 activation blob.
+  Future<String> startTrial({
+    required String username,
+    required String deviceId,
+    String? sessionToken,
+  }) {
+    return _activationRequest('/api/trial', {
+      'username': username,
+      'deviceId': deviceId,
+    }, sessionToken);
+  }
+
+  /// Submits a crypto payment; the backend verifies it on-chain and, on success,
+  /// returns a base64 activation blob. POST /api/subscribe.
+  Future<String> subscribe({
+    required String username,
+    required String deviceId,
+    required String network,
+    required String txHash,
+    String? sessionToken,
+  }) {
+    return _activationRequest('/api/subscribe', {
+      'username': username,
+      'deviceId': deviceId,
+      'network': network,
+      'txHash': txHash,
+    }, sessionToken);
+  }
+
+  /// Hits an activation endpoint (trial/subscribe) that returns an opaque base64
+  /// blob on success or a JSON error object on failure.
+  Future<String> _activationRequest(
+    String path,
+    Map<String, dynamic> body,
+    String? sessionToken,
+  ) async {
+    try {
+      final response = await _dio.post<String>(
+        path,
+        data: body,
+        options: _authOptions(sessionToken),
+      );
+      final raw = (response.data ?? '').trim();
+
+      // A JSON object means the backend rejected the request; the success path
+      // returns an opaque base64 blob (no leading brace).
+      if (raw.startsWith('{')) {
+        _throwIfFailure(jsonDecode(raw) as Map<String, dynamic>);
+      }
+      if (raw.isEmpty) {
+        throw const ApiException('Empty response from the server.');
+      }
+      return raw;
+    } on DioException catch (e) {
+      throw _apiExceptionFromDio(e);
+    } on FormatException {
+      throw const ApiException(
+        'Received an invalid response from the server. Please try again.',
+      );
+    }
+  }
+
+  Map<String, dynamic> _decodeJson(String? body) {
+    final decoded = jsonDecode(body ?? '');
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Expected a JSON object');
+    }
+    return decoded;
+  }
+
+  /// Throws the mapped domain exception when a `{success:false}` body is seen.
+  void _throwIfFailure(Map<String, dynamic> decoded) {
+    if (decoded['success'] == true) return;
+    if (decoded['code'] == 'SUBSCRIPTION_EXPIRED') {
+      throw SubscriptionExpiredException(
+        decoded['error']?.toString() ?? 'Your subscription has expired.',
+      );
+    }
+    throw ApiException(
+      decoded['error']?.toString() ??
+          'The server rejected the request. Please try again.',
+    );
   }
 
   DateTime? _parseExpireTime(dynamic raw) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'onboarding/activation_section.dart';
+import 'onboarding/google_sign_in_section.dart';
 import 'onboarding/subscription_section.dart';
 import 'onboarding/trial_cta.dart';
 import '../bloc/vpn/vpn_bloc.dart';
@@ -62,6 +63,8 @@ class OnboardingScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 28),
+                const GoogleSignInSection(),
+                const SizedBox(height: 20),
                 if (isTrialEligible) ...[
                   TrialCta(
                     isStartingTrial: isStartingTrial,

@@ -5,6 +5,7 @@ import '../../../domain/entities/app_update_info.dart';
 import '../../../domain/entities/ping_mode.dart';
 import '../../../domain/entities/ping_progress.dart';
 import '../../../domain/entities/tunnel_protocol.dart';
+import '../../../domain/entities/user_session.dart';
 import '../../../domain/entities/vpn_server.dart';
 import '../../../domain/failures/failures.dart';
 import '../../../domain/repositories/settings_repository.dart';
@@ -15,6 +16,7 @@ import '../../../domain/usecases/import_activation.dart';
 import '../../../domain/usecases/load_cached_servers.dart';
 import '../../../domain/usecases/ping_servers.dart';
 import '../../../domain/usecases/refresh_servers.dart';
+import '../../../domain/usecases/sign_in_with_google.dart';
 import '../../../domain/usecases/start_free_trial.dart';
 import '../../../domain/usecases/subscribe_with_crypto.dart';
 
@@ -33,6 +35,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
   final ImportActivation _importActivation;
   final StartFreeTrial _startTrial;
   final SubscribeWithCrypto _subscribe;
+  final SignInWithGoogle _signInWithGoogle;
   final VpnServerRepository _serverRepo;
   final SubscriptionRepository _subs;
   final SettingsRepository _settings;
@@ -48,6 +51,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     required ImportActivation importActivation,
     required StartFreeTrial startFreeTrial,
     required SubscribeWithCrypto subscribeWithCrypto,
+    required SignInWithGoogle signInWithGoogle,
     required VpnServerRepository serverRepository,
     required SubscriptionRepository subscriptionRepository,
     required SettingsRepository settingsRepository,
@@ -58,6 +62,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
        _importActivation = importActivation,
        _startTrial = startFreeTrial,
        _subscribe = subscribeWithCrypto,
+       _signInWithGoogle = signInWithGoogle,
        _serverRepo = serverRepository,
        _subs = subscriptionRepository,
        _settings = settingsRepository,
@@ -94,12 +99,18 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<ActivationCodeSubmitted>(_onActivation);
     on<FreeTrialRequested>(_onTrial);
     on<SubscriptionSubmitted>(_onSubscription);
+    on<GoogleSignInRequested>(_onGoogleSignIn);
+    on<SignOutRequested>(_onSignOut);
+    on<SessionsRequested>(_onSessionsRequested);
+    on<SessionRevoked>(_onSessionRevoked);
     on<UpdateBannerDismissed>(_onUpdateBannerDismissed);
   }
 
   Future<void> _onStarted(VpnStarted event, Emitter<VpnState> emit) async {
     final username = await _subs.getUsername();
     final deviceId = await _subs.getOrCreateDeviceId();
+    final hasSession = await _subs.hasSession();
+    final email = await _subs.getAccountEmail();
     final sub = await _subs.loadSubscription();
     final timeout = await _settings.getPingTimeoutMs();
     final batch = await _settings.getPingBatchSize();
@@ -122,6 +133,9 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
       state.copyWith(
         username: username,
         deviceId: deviceId,
+        hasSession: hasSession,
+        email: email,
+        googleSignInAvailable: _subs.isGoogleSignInSupported,
         expireTime: sub.expireTime,
         lastFetchTime: sub.lastFetch,
         pingTimeoutMs: timeout,
@@ -145,7 +159,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
       ),
     );
 
-    if (username.isNotEmpty) {
+    if (username.isNotEmpty || hasSession) {
       await _doFetch(emit);
     }
     emit(state.copyWith(initialized: true));
@@ -155,7 +169,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
       _doFetch(emit);
 
   Future<void> _doFetch(Emitter<VpnState> emit) async {
-    if (state.username.isEmpty) return;
+    if (state.username.isEmpty && !state.hasSession) return;
 
     emit(state.copyWith(isFetchingServers: true));
     try {
@@ -630,6 +644,91 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
       return;
     }
     await _afterUnlock(VpnActionKind.subscription, emit, clearSubscribing: true);
+  }
+
+  Future<void> _onGoogleSignIn(
+    GoogleSignInRequested event,
+    Emitter<VpnState> emit,
+  ) async {
+    if (state.isSigningInWithGoogle) return;
+    emit(state.copyWith(isSigningInWithGoogle: true));
+
+    try {
+      final session = await _signInWithGoogle();
+      if (session == null) {
+        // User cancelled the Google sign-in sheet.
+        emit(state.copyWith(isSigningInWithGoogle: false));
+        return;
+      }
+      emit(
+        state.copyWith(
+          isSigningInWithGoogle: false,
+          hasSession: true,
+          email: session.email,
+          expireTime: session.expireTime,
+        ),
+      );
+      // Pull the server list for the account. A brand-new account with no
+      // entitlement yet surfaces SUBSCRIPTION_EXPIRED here, which keeps the
+      // onboarding gate open so the user can start a trial/subscription — now
+      // attached to their Google account.
+      await _doFetch(emit);
+    } on ApiException catch (e) {
+      emit(state.copyWith(isSigningInWithGoogle: false, message: _msg(e.message)));
+    } catch (_) {
+      emit(
+        state.copyWith(
+          isSigningInWithGoogle: false,
+          message: _msg('Google sign-in failed. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onSignOut(SignOutRequested event, Emitter<VpnState> emit) async {
+    await _subs.signOut();
+    await _serverRepo.clearServers();
+    emit(
+      state.copyWith(
+        hasSession: false,
+        email: '',
+        servers: const [],
+        sessions: const [],
+        isSubscriptionExpired: false,
+        clearSelectedServer: true,
+      ),
+    );
+  }
+
+  Future<void> _onSessionsRequested(
+    SessionsRequested event,
+    Emitter<VpnState> emit,
+  ) async {
+    emit(state.copyWith(isLoadingSessions: true));
+    try {
+      final sessions = await _subs.listSessions();
+      emit(state.copyWith(sessions: sessions, isLoadingSessions: false));
+    } catch (e) {
+      emit(
+        state.copyWith(
+          isLoadingSessions: false,
+          message: _msg('Could not load your sessions. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onSessionRevoked(
+    SessionRevoked event,
+    Emitter<VpnState> emit,
+  ) async {
+    try {
+      await _subs.revokeSession(event.sessionId);
+      final sessions = await _subs.listSessions();
+      emit(state.copyWith(sessions: sessions));
+    } catch (_) {
+      emit(state.copyWith(message: _msg('Could not revoke that session.')));
+    }
   }
 
   /// Shared tail of the three unlock flows: refresh identity/servers from the

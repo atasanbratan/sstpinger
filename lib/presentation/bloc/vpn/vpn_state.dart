@@ -36,6 +36,19 @@ class VpnState extends Equatable {
   final String username;
   final String deviceId;
 
+  /// Google Sign-In identity. [hasSession] is true once signed in; [email] is
+  /// the account email (display only); [isSigningInWithGoogle] guards the
+  /// button; [googleSignInAvailable] gates showing it at all (false on desktop
+  /// or when unconfigured).
+  final bool hasSession;
+  final String email;
+  final bool isSigningInWithGoogle;
+  final bool googleSignInAvailable;
+
+  /// The account's registered device sessions (management screen).
+  final List<UserSession> sessions;
+  final bool isLoadingSessions;
+
   final List<VpnServer> servers;
   final bool isFetchingServers;
   final bool isSubscriptionExpired;
@@ -111,6 +124,12 @@ class VpnState extends Equatable {
     this.initialized = false,
     this.username = '',
     this.deviceId = '',
+    this.hasSession = false,
+    this.email = '',
+    this.isSigningInWithGoogle = false,
+    this.googleSignInAvailable = false,
+    this.sessions = const [],
+    this.isLoadingSessions = false,
     this.servers = const [],
     this.isFetchingServers = false,
     this.isSubscriptionExpired = false,
@@ -155,8 +174,10 @@ class VpnState extends Equatable {
   bool isBookmarked(VpnServer server) =>
       bookmarkedServers.any((b) => b.endpoint == server.endpoint);
 
-  /// Whether the onboarding gate should show (no identity yet, or lapsed).
-  bool get needsOnboarding => username.isEmpty || isSubscriptionExpired;
+  /// Whether the onboarding gate should show: no identity at all (neither a
+  /// Google session nor a legacy username), or the subscription has lapsed.
+  bool get needsOnboarding =>
+      (username.isEmpty && !hasSession) || isSubscriptionExpired;
 
   List<VpnServer> get filteredServers {
     if (searchQuery.trim().isEmpty) return servers;
@@ -174,6 +195,12 @@ class VpnState extends Equatable {
     bool? initialized,
     String? username,
     String? deviceId,
+    bool? hasSession,
+    String? email,
+    bool? isSigningInWithGoogle,
+    bool? googleSignInAvailable,
+    List<UserSession>? sessions,
+    bool? isLoadingSessions,
     List<VpnServer>? servers,
     bool? isFetchingServers,
     bool? isSubscriptionExpired,
@@ -214,6 +241,14 @@ class VpnState extends Equatable {
       initialized: initialized ?? this.initialized,
       username: username ?? this.username,
       deviceId: deviceId ?? this.deviceId,
+      hasSession: hasSession ?? this.hasSession,
+      email: email ?? this.email,
+      isSigningInWithGoogle:
+          isSigningInWithGoogle ?? this.isSigningInWithGoogle,
+      googleSignInAvailable:
+          googleSignInAvailable ?? this.googleSignInAvailable,
+      sessions: sessions ?? this.sessions,
+      isLoadingSessions: isLoadingSessions ?? this.isLoadingSessions,
       servers: servers ?? this.servers,
       isFetchingServers: isFetchingServers ?? this.isFetchingServers,
       isSubscriptionExpired:
@@ -264,6 +299,12 @@ class VpnState extends Equatable {
     initialized,
     username,
     deviceId,
+    hasSession,
+    email,
+    isSigningInWithGoogle,
+    googleSignInAvailable,
+    sessions,
+    isLoadingSessions,
     servers,
     isFetchingServers,
     isSubscriptionExpired,

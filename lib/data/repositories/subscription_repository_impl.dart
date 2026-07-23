@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:math';
 
+import '../../domain/entities/auth_session.dart';
 import '../../domain/entities/subscription.dart';
+import '../../domain/entities/user_session.dart';
 import '../../domain/entities/vpn_server.dart';
 import '../../domain/repositories/subscription_repository.dart';
+import '../datasources/google_auth_service.dart';
 import '../datasources/preferences_data_source.dart';
 import '../datasources/vpn_remote_data_source.dart';
 import '../dto/vpn_server_dto.dart';
@@ -12,11 +15,17 @@ import '../dto/vpn_server_dto.dart';
 /// username and a server list; this decodes them and persists the username, but
 /// leaves caching the servers to the caller (the use cases), which is why it
 /// returns them.
+///
+/// Two identities coexist: a Google **session token** (the new primary auth) and
+/// the legacy generated `username`+`deviceId`. When a session token is present,
+/// trial/subscribe/fetch authenticate by bearer and the entitlement attaches to
+/// the Google account; otherwise they use the legacy username.
 class SubscriptionRepositoryImpl implements SubscriptionRepository {
   final VpnRemoteDataSource _remote;
   final PreferencesDataSource _prefs;
+  final GoogleAuthService _google;
 
-  SubscriptionRepositoryImpl(this._remote, this._prefs);
+  SubscriptionRepositoryImpl(this._remote, this._prefs, this._google);
 
   @override
   Future<String> getUsername() => _prefs.getUsername();
@@ -50,9 +59,14 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   @override
   Future<List<VpnServer>> startFreeTrial() async {
     final deviceId = await _prefs.getOrCreateDeviceId();
-    final username = await _getOrCreateUsername();
+    final token = await _prefs.getSessionToken();
+    final username = token.isNotEmpty ? '' : await _getOrCreateUsername();
 
-    final blob = await _remote.startTrial(username: username, deviceId: deviceId);
+    final blob = await _remote.startTrial(
+      username: username,
+      deviceId: deviceId,
+      sessionToken: token.isEmpty ? null : token,
+    );
     return importActivationCode(blob);
   }
 
@@ -62,19 +76,72 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
     required String txHash,
   }) async {
     final deviceId = await _prefs.getOrCreateDeviceId();
-    final username = await _getOrCreateUsername();
+    final token = await _prefs.getSessionToken();
+    final username = token.isNotEmpty ? '' : await _getOrCreateUsername();
 
     final blob = await _remote.subscribe(
       username: username,
       deviceId: deviceId,
       network: network,
       txHash: txHash,
+      sessionToken: token.isEmpty ? null : token,
     );
     return importActivationCode(blob);
   }
 
+  @override
+  bool get isGoogleSignInSupported => _google.isSupported;
+
+  @override
+  Future<bool> hasSession() async =>
+      (await _prefs.getSessionToken()).isNotEmpty;
+
+  @override
+  Future<String> getAccountEmail() => _prefs.getAccountEmail();
+
+  @override
+  Future<AuthSession?> signInWithGoogle() async {
+    final idToken = await _google.signInIdToken();
+    if (idToken == null) return null; // cancelled
+
+    final deviceId = await _prefs.getOrCreateDeviceId();
+    final result = await _remote.authGoogle(idToken: idToken, deviceId: deviceId);
+    await _prefs.saveSession(
+      token: result.sessionToken,
+      email: result.session.email,
+    );
+    return result.session;
+  }
+
+  @override
+  Future<void> signOut() async {
+    final token = await _prefs.getSessionToken();
+    // Best-effort backend revoke of *this* device's session is implicit: the
+    // token is simply dropped locally. (Per-session revoke is available via
+    // revokeSession for the management screen.)
+    if (token.isNotEmpty) {
+      // Nothing server-side to call for a plain sign-out; keep it local.
+    }
+    await _google.signOut();
+    await _prefs.clearSession();
+  }
+
+  @override
+  Future<List<UserSession>> listSessions() async {
+    final token = await _prefs.getSessionToken();
+    if (token.isEmpty) return const [];
+    return _remote.listSessions(sessionToken: token);
+  }
+
+  @override
+  Future<void> revokeSession(int id) async {
+    final token = await _prefs.getSessionToken();
+    if (token.isEmpty) return;
+    await _remote.revokeSession(sessionToken: token, id: id);
+  }
+
   /// A stable username is generated on first use and reused for renewals so the
-  /// subscription stays tied to this install.
+  /// subscription stays tied to this install (legacy, non-Google path).
   Future<String> _getOrCreateUsername() async {
     var username = await _prefs.getUsername();
     if (username.isEmpty) {

@@ -200,6 +200,31 @@ class FreeTrialRequested extends VpnEvent {
   const FreeTrialRequested();
 }
 
+/// Starts the interactive Google Sign-In and, on success, fetches servers for
+/// the signed-in account.
+class GoogleSignInRequested extends VpnEvent {
+  const GoogleSignInRequested();
+}
+
+/// Signs out of the Google account and returns to the onboarding gate.
+class SignOutRequested extends VpnEvent {
+  const SignOutRequested();
+}
+
+/// Loads the signed-in account's registered device sessions.
+class SessionsRequested extends VpnEvent {
+  const SessionsRequested();
+}
+
+/// Revokes one of the account's own sessions, then reloads the list.
+class SessionRevoked extends VpnEvent {
+  final int sessionId;
+  const SessionRevoked(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
+}
+
 class SubscriptionSubmitted extends VpnEvent {
   final String network;
   final String txHash;
