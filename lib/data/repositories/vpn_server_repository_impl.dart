@@ -39,6 +39,7 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
       username: username,
       deviceId: deviceId,
       count: await _prefs.getFetchServerCount(),
+      pool: await _resolvePool(),
     );
     _cachedUpdate = response.updateInfo;
     await _prefs.saveSubscriptionInfo(
@@ -53,6 +54,14 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
     await _prefs.saveServersWithPing(_cached);
     return _cached;
   }
+
+  /// The backend pool to request: the curated regional pool when the user
+  /// has opted into it (see [PreferencesDataSource.getUseCuratedRegion]), or
+  /// null for the default full list.
+  Future<String?> _resolvePool() async =>
+      await _prefs.getUseCuratedRegion()
+          ? PreferencesDataSource.curatedRegionPool
+          : null;
 
   /// Re-applies previously measured ping values to [fresh], matching on
   /// `ip:port` — the backend's `id` can change, the endpoint does not.
@@ -78,6 +87,7 @@ class VpnServerRepositoryImpl implements VpnServerRepository {
       username: username,
       deviceId: deviceId,
       count: await _prefs.getFetchServerCount(),
+      pool: await _resolvePool(),
     );
     _cachedUpdate = response.updateInfo;
     await _prefs.saveSubscriptionInfo(

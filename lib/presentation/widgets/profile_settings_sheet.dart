@@ -1,31 +1,38 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/config/support_config.dart';
+import '../../core/utils/formatters.dart';
 import '../bloc/vpn/vpn_bloc.dart';
+import '../screens/settings/custom_node_screen.dart';
+import '../screens/settings/diagnostic_logs_screen.dart';
+import '../screens/settings/faq_screen.dart';
+import '../screens/settings/fetch_count_screen.dart';
+import '../screens/settings/ping_settings_screen.dart';
+import '../screens/settings/proxy_sharing_screen.dart';
+import '../screens/settings/protocol_screen.dart';
+import '../screens/settings/reconnect_settings_screen.dart';
+import '../screens/settings/softether_natt_screen.dart';
+import '../screens/settings/static_info_screen.dart';
 import '../theme/app_colors.dart';
-import 'profile_settings/custom_node_settings.dart';
-import 'profile_settings/fetch_count_card.dart';
-import 'profile_settings/log_path_row.dart';
-import 'profile_settings/ping_mode_card.dart';
-import 'profile_settings/ping_settings_card.dart';
-import 'profile_settings/protocol_card.dart';
-import 'profile_settings/reconnect_settings_card.dart';
 import 'profile_settings/renew_buttons.dart';
+import 'profile_settings/settings_bottom_sheet.dart';
+import 'profile_settings/settings_group_card.dart';
+import 'profile_settings/settings_row.dart';
 import 'profile_settings/settings_section_header.dart';
-import 'profile_settings/softether_natt_card.dart';
-import 'profile_settings/subscription_card.dart';
-import 'profile_settings/user_profile_card.dart';
 
 class ProfileSettingsSheet extends StatelessWidget {
   final VoidCallback onEditUsername;
   final VoidCallback onRenew;
 
   /// Renew by loading the activation-code file (the admin console's Download).
-  /// Null hides the option (e.g. the foreign variant, which renews via payment).
   final VoidCallback? onRenewFromFile;
-  final String renewLabel;
+  final VoidCallback onSubscribe;
   final TextEditingController customHostController;
   final TextEditingController customPortController;
   final TextEditingController customUsernameController;
@@ -36,7 +43,7 @@ class ProfileSettingsSheet extends StatelessWidget {
     required this.onEditUsername,
     required this.onRenew,
     this.onRenewFromFile,
-    this.renewLabel = 'RENEW ACTIVATION CODE',
+    required this.onSubscribe,
     required this.customHostController,
     required this.customPortController,
     required this.customUsernameController,
@@ -45,6 +52,30 @@ class ProfileSettingsSheet extends StatelessWidget {
 
   /// SoftEther is desktop-only, so the protocol picker is too.
   bool get _isDesktop => !Platform.isAndroid && !Platform.isIOS;
+
+  void _push(BuildContext context, Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _copyDeviceId(BuildContext context, String deviceId) {
+    Clipboard.setData(ClipboardData(text: deviceId));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Device ID copied to clipboard'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _contactUs(BuildContext context) async {
+    if (SupportConfig.supportEmail.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Support contact isn't configured yet.")),
+      );
+      return;
+    }
+    await launchUrl(Uri(scheme: 'mailto', path: SupportConfig.supportEmail));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,100 +108,217 @@ class ProfileSettingsSheet extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SettingsSectionHeader('USER PROFILE'),
+                const SettingsSectionHeader('ACCOUNT'),
                 const SizedBox(height: 8),
-                UserProfileCard(
-                  username: vpn.username,
-                  deviceId: vpn.deviceId,
-                  onEditUsername: onEditUsername,
-                ),
-                const SizedBox(height: 20),
-                const SettingsSectionHeader('SUBSCRIPTION'),
-                const SizedBox(height: 8),
-                SubscriptionCard(
-                  isExpired: vpn.isSubscriptionExpired,
-                  expireTime: vpn.expireTime,
-                  lastFetchTime: vpn.lastFetchTime,
+                SettingsGroupCard(
+                  rows: [
+                    SettingsRow(
+                      icon: Icons.person,
+                      title: 'Username',
+                      trailingText: vpn.username,
+                      onTap: onEditUsername,
+                    ),
+                    SettingsRow(
+                      icon: Icons.phone_android,
+                      iconColor: AppColors.accentSecondary,
+                      title: 'Device ID',
+                      trailingText: vpn.deviceId,
+                      onTap: () => _copyDeviceId(context, vpn.deviceId),
+                    ),
+                    SettingsRow(
+                      icon: vpn.isSubscriptionExpired
+                          ? Icons.error_outline
+                          : Icons.workspace_premium_outlined,
+                      iconColor: vpn.isSubscriptionExpired
+                          ? AppColors.error
+                          : AppColors.accent,
+                      title: vpn.isSubscriptionExpired
+                          ? 'Expired on'
+                          : 'Expires on',
+                      subtitle: vpn.isSubscriptionExpired
+                          ? null
+                          : Formatters.remaining(vpn.expireTime),
+                      trailingText: Formatters.date(vpn.expireTime),
+                      trailingTextColor: vpn.isSubscriptionExpired
+                          ? AppColors.error
+                          : null,
+                      onTap: onSubscribe,
+                    ),
+                    SettingsRow(
+                      icon: Icons.update,
+                      iconColor: AppColors.textMuted,
+                      title: 'Server list last updated',
+                      trailingText: Formatters.date(vpn.lastFetchTime),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 RenewButtons(
                   onRenew: onRenew,
-                  renewLabel: renewLabel,
                   onRenewFromFile: onRenewFromFile,
+                  onSubscribe: onSubscribe,
                 ),
-                // Desktop only: SoftEther has no Android/iOS client (and no
-                // non-root way to get one), so mobile has a single protocol and
-                // the picker would be a control with nothing to choose.
-                if (_isDesktop) ...[
-                  const SizedBox(height: 20),
-                  const SettingsSectionHeader('PROTOCOL'),
-                  const SizedBox(height: 8),
-                  ProtocolCard(
-                    selected: vpn.protocol,
-                    onChanged: (p) => bloc.add(ProtocolChanged(p)),
-                  ),
-                  const SizedBox(height: 20),
-                  const SettingsSectionHeader('SOFTETHER TRANSPORT'),
-                  const SizedBox(height: 8),
-                  SoftEtherNatTCard(
-                    disableNatT: vpn.softEtherDisableNatT,
-                    onDisableNatTChanged: (v) =>
-                        bloc.add(SoftEtherDisableNatTChanged(v)),
-                    retryWaitSeconds: vpn.softEtherNatTRetryWaitSeconds,
-                    onRetryWaitChanged: (v) =>
-                        bloc.add(SoftEtherNatTRetryWaitChanged(v)),
-                    onPersist: () =>
-                        bloc.add(const SoftEtherNatTSettingsPersistRequested()),
-                  ),
-                ],
-                const LogPathRow(),
                 const SizedBox(height: 20),
-                const SettingsSectionHeader('PING SETTINGS'),
+                const SettingsSectionHeader('NETWORK'),
                 const SizedBox(height: 8),
-                PingSettingsCard(
-                  timeoutSeconds: vpn.pingTimeoutSeconds,
-                  onTimeoutChanged: (v) => bloc.add(PingTimeoutChanged(v)),
-                  batchSize: vpn.pingBatchSize,
-                  onBatchSizeChanged: (v) => bloc.add(PingBatchSizeChanged(v)),
-                  onPersist: () =>
-                      bloc.add(const PingSettingsPersistRequested()),
-                ),
-                const SizedBox(height: 10),
-                PingModeCard(
-                  mode: vpn.pingMode,
-                  onChanged: (m) => bloc.add(PingModeChanged(m)),
+                SettingsGroupCard(
+                  rows: [
+                    SettingsRow(
+                      icon: Icons.public_rounded,
+                      title: 'Curated region pool',
+                      subtitle: 'Only servers verified reachable from that ISP',
+                      switchValue: vpn.useCuratedRegion,
+                      onSwitchChanged: (v) =>
+                          bloc.add(RegionPoolChanged(v)),
+                    ),
+                    if (_isDesktop)
+                      SettingsRow(
+                        icon: Icons.shield_outlined,
+                        title: 'Protocol',
+                        trailingText: vpn.protocol.label,
+                        showChevron: true,
+                        onTap: () => showSettingsBottomSheet(
+                          context,
+                          title: 'Protocol',
+                          child: const ProtocolScreen(),
+                        ),
+                      ),
+                    if (_isDesktop)
+                      SettingsRow(
+                        icon: Icons.lan_rounded,
+                        title: 'SoftEther transport',
+                        trailingText:
+                            vpn.softEtherDisableNatT ? 'NAT-T off' : 'NAT-T on',
+                        showChevron: true,
+                        onTap: () => showSettingsBottomSheet(
+                          context,
+                          title: 'SoftEther Transport',
+                          child: const SoftEtherNattScreen(),
+                        ),
+                      ),
+                    SettingsRow(
+                      icon: Icons.share_rounded,
+                      title: 'Proxy sharing',
+                      trailingText: vpn.proxySharingEnabled
+                          ? 'On · ${vpn.proxySharingPort}'
+                          : 'Off',
+                      showChevron: true,
+                      onTap: () => showSettingsBottomSheet(
+                        context,
+                        title: 'Proxy Sharing',
+                        child: const ProxySharingScreen(),
+                      ),
+                    ),
+                    SettingsRow(
+                      icon: Icons.timer_outlined,
+                      title: 'Ping settings',
+                      showChevron: true,
+                      onTap: () => showSettingsBottomSheet(
+                        context,
+                        title: 'Ping Settings',
+                        child: const PingSettingsScreen(),
+                      ),
+                    ),
+                    SettingsRow(
+                      icon: Icons.dns_rounded,
+                      title: 'Server fetch count',
+                      trailingText: '${vpn.fetchServerCount}',
+                      showChevron: true,
+                      onTap: () => showSettingsBottomSheet(
+                        context,
+                        title: 'Server List',
+                        child: const FetchCountScreen(),
+                      ),
+                    ),
+                    SettingsRow(
+                      icon: Icons.refresh_rounded,
+                      title: 'Reconnection',
+                      showChevron: true,
+                      onTap: () => showSettingsBottomSheet(
+                        context,
+                        title: 'Reconnection',
+                        child: const ReconnectSettingsScreen(),
+                      ),
+                    ),
+                    SettingsRow(
+                      icon: Icons.tune,
+                      title: 'Custom node',
+                      trailingText: vpn.useCustomConfig ? 'On' : 'Off',
+                      showChevron: true,
+                      onTap: () => _push(
+                        context,
+                        CustomNodeScreen(
+                          hostController: customHostController,
+                          portController: customPortController,
+                          usernameController: customUsernameController,
+                          passwordController: customPasswordController,
+                        ),
+                      ),
+                    ),
+                    SettingsRow(
+                      icon: Icons.description_outlined,
+                      title: 'Diagnostic logs',
+                      showChevron: true,
+                      onTap: () =>
+                          _push(context, const DiagnosticLogsScreen()),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
-                const SettingsSectionHeader('SERVER LIST'),
+                const SettingsSectionHeader('APP'),
                 const SizedBox(height: 8),
-                FetchCountCard(
-                  count: vpn.fetchServerCount,
-                  onChanged: (v) => bloc.add(FetchServerCountChanged(v)),
-                  onPersist: () =>
-                      bloc.add(const FetchServerCountPersistRequested()),
-                ),
-                const SizedBox(height: 20),
-                const SettingsSectionHeader('RECONNECTION'),
-                const SizedBox(height: 8),
-                ReconnectSettingsCard(
-                  retryCount: vpn.reconnectRetryCount,
-                  onRetryCountChanged: (v) =>
-                      bloc.add(ReconnectRetryCountChanged(v)),
-                  retryIntervalSeconds: vpn.reconnectRetryIntervalSeconds,
-                  onRetryIntervalChanged: (v) =>
-                      bloc.add(ReconnectRetryIntervalChanged(v)),
-                  onPersist: () =>
-                      bloc.add(const ReconnectSettingsPersistRequested()),
-                ),
-                const SizedBox(height: 20),
-                CustomNodeSettings(
-                  enabled: vpn.useCustomConfig,
-                  onEnabledChanged: (v) =>
-                      bloc.add(UseCustomConfigChanged(v)),
-                  hostController: customHostController,
-                  portController: customPortController,
-                  usernameController: customUsernameController,
-                  passwordController: customPasswordController,
+                SettingsGroupCard(
+                  rows: [
+                    SettingsRow(
+                      icon: Icons.mail_outline,
+                      title: 'Contact Us',
+                      showChevron: true,
+                      onTap: () => _contactUs(context),
+                    ),
+                    SettingsRow(
+                      icon: Icons.help_outline,
+                      title: 'FAQ',
+                      showChevron: true,
+                      onTap: () => _push(context, const FaqScreen()),
+                    ),
+                    SettingsRow(
+                      icon: Icons.security,
+                      title: 'Privacy & Security',
+                      showChevron: true,
+                      onTap: () => _push(
+                        context,
+                        const StaticInfoScreen(
+                          title: 'Privacy & Security',
+                          body: 'TODO: insert policy text',
+                        ),
+                      ),
+                    ),
+                    SettingsRow(
+                      icon: Icons.privacy_tip_outlined,
+                      title: 'Privacy Policy',
+                      showChevron: true,
+                      onTap: () => _push(
+                        context,
+                        const StaticInfoScreen(
+                          title: 'Privacy Policy',
+                          body: 'TODO: insert policy text',
+                        ),
+                      ),
+                    ),
+                    SettingsRow(
+                      icon: Icons.description_outlined,
+                      title: 'Terms of Service',
+                      showChevron: true,
+                      onTap: () => _push(
+                        context,
+                        const StaticInfoScreen(
+                          title: 'Terms of Service',
+                          body: 'TODO: insert policy text',
+                        ),
+                      ),
+                    ),
+                    const _VersionRow(),
+                  ],
                 ),
                 const SizedBox(height: 30),
               ],
@@ -178,6 +326,28 @@ class ProfileSettingsSheet extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// Real app version + build number, e.g. "3.2.0 (12)".
+class _VersionRow extends StatelessWidget {
+  const _VersionRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        final text = info == null ? '…' : '${info.version} (${info.buildNumber})';
+        return SettingsRow(
+          icon: Icons.info_outline,
+          iconColor: AppColors.textMuted,
+          title: 'Version',
+          trailingText: text,
+        );
+      },
     );
   }
 }

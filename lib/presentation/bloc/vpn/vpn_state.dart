@@ -72,6 +72,16 @@ class VpnState extends Equatable {
   final bool softEtherDisableNatT;
   final int softEtherNatTRetryWaitSeconds;
 
+  /// Desktop only: whether this device shares its VPN tunnel via a local
+  /// SOCKS5 proxy other LAN devices can point at, and which port it listens
+  /// on. Takes effect on the next connect.
+  final bool proxySharingEnabled;
+  final int proxySharingPort;
+
+  /// Whether to fetch from the curated regional pool (servers pre-verified
+  /// reachable from a specific ISP) instead of the full server list.
+  final bool useCuratedRegion;
+
   /// Servers-tab layout: true = flat, ping-sorted list; false = grouped by country.
   final bool serversFlatView;
 
@@ -122,6 +132,9 @@ class VpnState extends Equatable {
     this.pingMode = PingMode.tcp,
     this.softEtherDisableNatT = true,
     this.softEtherNatTRetryWaitSeconds = 15,
+    this.proxySharingEnabled = false,
+    this.proxySharingPort = 1080,
+    this.useCuratedRegion = false,
     this.serversFlatView = false,
     this.protocol = TunnelProtocol.sstp,
     this.isImportingActivation = false,
@@ -183,6 +196,9 @@ class VpnState extends Equatable {
     PingMode? pingMode,
     bool? softEtherDisableNatT,
     int? softEtherNatTRetryWaitSeconds,
+    bool? proxySharingEnabled,
+    int? proxySharingPort,
+    bool? useCuratedRegion,
     bool? serversFlatView,
     TunnelProtocol? protocol,
     bool? isImportingActivation,
@@ -224,6 +240,9 @@ class VpnState extends Equatable {
       softEtherDisableNatT: softEtherDisableNatT ?? this.softEtherDisableNatT,
       softEtherNatTRetryWaitSeconds:
           softEtherNatTRetryWaitSeconds ?? this.softEtherNatTRetryWaitSeconds,
+      proxySharingEnabled: proxySharingEnabled ?? this.proxySharingEnabled,
+      proxySharingPort: proxySharingPort ?? this.proxySharingPort,
+      useCuratedRegion: useCuratedRegion ?? this.useCuratedRegion,
       serversFlatView: serversFlatView ?? this.serversFlatView,
       protocol: protocol ?? this.protocol,
       isImportingActivation:
@@ -266,6 +285,9 @@ class VpnState extends Equatable {
     pingMode,
     softEtherDisableNatT,
     softEtherNatTRetryWaitSeconds,
+    proxySharingEnabled,
+    proxySharingPort,
+    useCuratedRegion,
     serversFlatView,
     protocol,
     isImportingActivation,

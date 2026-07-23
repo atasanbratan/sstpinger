@@ -48,8 +48,8 @@ because that backend has never been proven against a live server.
 
 ## Features
 
-- **Onboarding** — an activation code (local variant), or a USDT subscription with
-  on-chain verification plus a one-time free trial (foreign variant).
+- **Onboarding** — an activation code, a USDT subscription with on-chain
+  verification, or a one-time free trial, all offered on one screen.
 - **Server registry** — nodes fetched from the backend and cached for offline use.
 - **Latency sorting** — raw TCP probes to each node's `ip:port`, run in configurable
   concurrent batches, with a live progress counter.
@@ -65,9 +65,9 @@ because that backend has never been proven against a live server.
 
 Grab a build from the [**latest release**](https://github.com/sstp-pinger/sstp_shield/releases/latest).
 
-**Android** — install `sstp-shield-local.apk` (activation code) or
-`sstp-shield-foreign.apk` (USDT subscription). You will need to allow installs from
-unknown sources.
+**Android** — install `sstp-shield.apk` (universal) or the per-ABI
+`sstp-shield-{abi}.apk` for a smaller download. You will need to allow installs
+from unknown sources.
 
 **Windows** — unzip `sstp-shield-windows-x64.zip` and run `sstp_shield.exe`. It requests
 Administrator at launch (a UAC prompt): creating the Wintun adapter and changing routes
@@ -96,9 +96,8 @@ git clone https://github.com/sstp-pinger/sstp_shield.git
 cd sstp_shield
 flutter pub get
 
-# Android — the two variants share the "standard" flavor
-flutter build apk --release --flavor standard --target lib/main.dart          # local
-flutter build apk --release --flavor standard --target lib/main_foreign.dart  # foreign
+# Android
+flutter build apk --release --flavor standard --target lib/main.dart
 
 # Linux — needs: ninja-build libgtk-3-dev clang cmake pkg-config
 flutter build linux --release --target lib/main.dart
@@ -107,15 +106,11 @@ flutter build linux --release --target lib/main.dart
 flutter build windows --release --target lib/main.dart
 ```
 
-### Product variants
+### One build, every onboarding path
 
-One codebase, two entry points, selected by `--target` (see
-[`lib/app/app_variant.dart`](lib/app/app_variant.dart)):
-
-| Variant | Entry point | Onboarding |
-|---|---|---|
-| local | `lib/main.dart` | Activation code |
-| foreign | `lib/main_foreign.dart` | USDT subscription (BEP20/TRC20) + free trial |
+A single entry point (`lib/main.dart`) offers activation code, USDT
+subscription (BEP20/TRC20), and a one-time free trial all on one onboarding
+screen — no separate variant builds.
 
 The operator console lives in a separate project, so it is neither shipped to end users
 nor published here.
@@ -147,7 +142,7 @@ lib/
   data/            DTOs · datasources (dio, prefs, ping, tunnel) · repository impls
   presentation/    blocs · screens · widgets · theme
   core/            di (composition root) · config · utils
-  app/             app root + variant
+  app/             app root
 ```
 
 **Two blocs**, provided above `MaterialApp` so pushed routes and modal sheets can read them:

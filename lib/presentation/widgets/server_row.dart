@@ -4,7 +4,7 @@ import '../../core/utils/country_flag.dart';
 import '../../domain/entities/vpn_server.dart';
 import '../theme/app_colors.dart';
 
-/// One server in the list: circular flag, name over a subtitle, latency, and a
+/// One server in the list: circular flag, country name, latency, and a
 /// chevron. The selected row is marked by a left accent bar and a tinted
 /// background.
 class ServerRow extends StatelessWidget {
@@ -72,31 +72,15 @@ class ServerRow extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      server.country.toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.5,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      server.hostname,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textFaint,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  server.country.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../bloc/vpn/vpn_bloc.dart';
-import '../theme/app_colors.dart';
+import '../../bloc/vpn/vpn_bloc.dart';
+import '../../theme/app_colors.dart';
 
-class ActivationScreen extends StatelessWidget {
-  const ActivationScreen({super.key});
+/// "Have an activation code?" onboarding path: paste from the clipboard, or
+/// import the `.txt` file the admin console's Download button saves.
+class ActivationSection extends StatelessWidget {
+  const ActivationSection({super.key});
 
   Future<void> _pasteFromClipboard(BuildContext context) async {
     final bloc = context.read<VpnBloc>();
@@ -113,78 +115,26 @@ class ActivationScreen extends StatelessWidget {
       (b) => b.state.isImportingActivation,
     );
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.gradientTop, AppColors.gradientBottom],
+    return Row(
+      children: [
+        Expanded(
+          child: _pill(
+            icon: Icons.content_paste_rounded,
+            label: isImporting ? 'Activating…' : 'Clipboard',
+            busy: isImporting,
+            onTap: () => _pasteFromClipboard(context),
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Image.asset('assets/logo/logo.png', width: 96, height: 96),
-                const SizedBox(height: 20),
-                const Text(
-                  'SSTP SHIELD',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 3,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Your Secure Gateway to SSTP VPN Nodes',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.white54),
-                ),
-                const SizedBox(height: 48),
-
-                const Text(
-                  'Paste your activation code to get started.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 28),
-
-                // Two pill actions side by side — the shape Happ uses for its
-                // Clipboard / QR-Code controls. Paste from the clipboard, or load
-                // the activation-code file saved by the admin console.
-                Row(
-                  children: [
-                    Expanded(
-                      child: _pill(
-                        icon: Icons.content_paste_rounded,
-                        label: isImporting ? 'Activating…' : 'Clipboard',
-                        busy: isImporting,
-                        onTap: () => _pasteFromClipboard(context),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _pill(
-                        icon: Icons.folder_open_rounded,
-                        label: 'From file',
-                        busy: false,
-                        onTap: () => _importFromFile(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _pill(
+            icon: Icons.folder_open_rounded,
+            label: 'From file',
+            busy: false,
+            onTap: () => _importFromFile(context),
           ),
         ),
-      ),
+      ],
     );
   }
 }

@@ -37,13 +37,21 @@ dependencies:
   #   sstp_flutter    -- Android/iOS  (VpnService / NEVPNManager)
   #   sstp_vpn_plugin -- Linux/Windows (ours: /dev/net/tun and Wintun)
   # VpnTunnelService picks one at runtime; nothing else in the app knows which.
-  sstp_flutter: ^1.3.0
+  # Fork of sstp_flutter carrying the Android LAN-bypass routing fix
+  # (excludeRoute for RFC1918 so proxy sharing reaches other Wi-Fi devices).
+  # Pinned to a commit for reproducible builds; bump the ref to adopt fork
+  # updates. For local fork work, add a dependency_overrides path override.
+  sstp_flutter:
+    git:
+      url: https://github.com/sstp-pinger/sstp_flutter.git
+      ref: aac52d3b95e4d2dea9d55ae4417f915b3575d12b
   sstp_vpn_plugin:
     git:
       url: https://github.com/sstp-pinger/sstp_vpn_plugin.git
       ref: main
 
   http: ^1.1.0
+  async: ^2.11.0
   shared_preferences: ^2.2.2
   advertising_id: ^2.4.0
   dio: ^5.10.0
@@ -56,6 +64,7 @@ dependencies:
   device_info_plus: ^13.2.0
   open_filex: ^4.5.0
   flutter_local_notifications: ^22.1.0
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

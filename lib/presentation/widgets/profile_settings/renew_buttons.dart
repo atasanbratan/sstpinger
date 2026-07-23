@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
 
-/// Renew-subscription actions: the primary renew button, plus an optional
-/// second one for loading an activation-code file (hidden for the foreign
-/// variant, which renews via payment instead).
+/// Renew-subscription actions: paste a new activation code, load one from a
+/// file, or subscribe/extend with USDT — all three always offered.
 class RenewButtons extends StatelessWidget {
   final VoidCallback onRenew;
-  final String renewLabel;
   final VoidCallback? onRenewFromFile;
+  final VoidCallback onSubscribe;
 
   const RenewButtons({
     super.key,
     required this.onRenew,
-    required this.renewLabel,
     this.onRenewFromFile,
+    required this.onSubscribe,
   });
 
   @override
@@ -26,7 +25,7 @@ class RenewButtons extends StatelessWidget {
           child: OutlinedButton.icon(
             onPressed: onRenew,
             icon: const Icon(Icons.autorenew, size: 18),
-            label: Text(renewLabel),
+            label: const Text('RENEW ACTIVATION CODE'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.accent,
               side: const BorderSide(color: AppColors.accentBorder),
@@ -56,6 +55,23 @@ class RenewButtons extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onSubscribe,
+            icon: const Icon(Icons.currency_bitcoin_rounded, size: 18),
+            label: const Text('SUBSCRIBE WITH USDT'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.accent,
+              side: const BorderSide(color: AppColors.accentBorder),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

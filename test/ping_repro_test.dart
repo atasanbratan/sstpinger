@@ -59,6 +59,12 @@ void main() {
     when(() => settings.getServersFlatView()).thenAnswer((_) async => false);
     when(() => settings.getProtocol())
         .thenAnswer((_) async => TunnelProtocol.sstp);
+    when(() => settings.getProxySharingEnabled())
+        .thenAnswer((_) async => false);
+    when(() => settings.getProxySharingPort()).thenAnswer((_) async => 1080);
+    when(() => settings.getLastExpiryWarningDate())
+        .thenAnswer((_) async => null);
+    when(() => settings.getUseCuratedRegion()).thenAnswer((_) async => false);
     when(() => serverRepo.loadBookmarks()).thenAnswer((_) async => []);
     when(() => serverRepo.loadRecents()).thenAnswer((_) async => []);
     when(() => serverRepo.loadCached()).thenAnswer((_) async => []);

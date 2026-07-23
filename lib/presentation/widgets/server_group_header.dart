@@ -4,27 +4,25 @@ import '../theme/app_colors.dart';
 import 'rounded_list_tile.dart';
 
 /// The tappable header row of a collapsible country group: chevron, leading
-/// badge, title over a subtitle, trailing actions. The rows themselves are
-/// separate sliver list items (see [ServerListView]) so large lists stay
-/// lazily built; this only draws the header tile, rounding its own corners
-/// per [roundBottom] (true while collapsed, since it is then the whole card).
+/// badge, title over a reachable-count line, trailing actions. The rows
+/// themselves are separate sliver list items (see [ServerListView]) so large
+/// lists stay lazily built; this only draws the header tile, rounding its own
+/// corners per [roundBottom] (true while collapsed, since it is then the
+/// whole card).
 class ServerGroupHeader extends StatelessWidget {
   final Widget leading;
   final String title;
-  final String subtitle;
   final bool isExpanded;
   final bool roundBottom;
   final VoidCallback onToggle;
 
-  /// How many servers in this group are reachable; rendered in green after the
-  /// subtitle. Zero hides the reachable clause.
+  /// How many servers in this group are reachable. Zero hides the line.
   final int reachable;
 
   const ServerGroupHeader({
     super.key,
     required this.leading,
     required this.title,
-    required this.subtitle,
     required this.isExpanded,
     required this.roundBottom,
     required this.onToggle,
@@ -71,28 +69,19 @@ class ServerGroupHeader extends StatelessWidget {
                           color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text.rich(
-                        TextSpan(
+                      if (reachable > 0) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '$reachable reachable',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 11,
-                            color: AppColors.textFaint,
+                            color: AppColors.pingGood,
+                            fontWeight: FontWeight.w600,
                           ),
-                          children: [
-                            TextSpan(text: subtitle),
-                            if (reachable > 0)
-                              TextSpan(
-                                text: ' · $reachable reachable',
-                                style: const TextStyle(
-                                  color: AppColors.pingGood,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      ],
                     ],
                   ),
                 ),

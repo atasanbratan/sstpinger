@@ -5,23 +5,14 @@
 # launched through the generated `sstp-vpn` wrapper. This Makefile bundles that.
 #
 # Everyday use:
-#   make run                  # build + grant privilege + launch (local variant)
-#   make run VARIANT=foreign  # same, foreign variant
-#   make dev                  # plain `flutter run` (fast; UI work, no tunnel)
+#   make run   # build + grant privilege + launch
+#   make dev   # plain `flutter run` (fast; UI work, no tunnel)
 #
 # `make run` runs setup_privilege.sh, which calls sudo — so it will prompt for
 # your password. Re-run it after every code change (a rebuild clears the
 # capability).
 
-# Which build to make: `local` (lib/main.dart) or `foreign` (lib/main_foreign.dart).
-VARIANT ?= local
-ifeq ($(VARIANT),foreign)
-  TARGET := lib/main_foreign.dart
-else ifeq ($(VARIANT),local)
-  TARGET := lib/main.dart
-else
-  $(error VARIANT must be 'local' or 'foreign', got '$(VARIANT)')
-endif
+TARGET := lib/main.dart
 
 # Location of the sstp_vpn_plugin checkout that ships setup_privilege.sh.
 # Override on the command line if yours lives elsewhere:  make run PLUGIN=/path
@@ -43,7 +34,6 @@ help: ## Show this help
 	@echo "SSTP Shield (client) — make targets:"
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
-	@echo "  (append VARIANT=foreign to build/run the foreign variant)"
 
 .PHONY: run
 run: build stage-softether stage-tls-relay priv launch ## Full pipeline: build + bundle SoftEther + TLS relay + grant privilege + launch

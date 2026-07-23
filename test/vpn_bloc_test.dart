@@ -50,6 +50,20 @@ void main() {
     when(() => settings.getServersFlatView()).thenAnswer((_) async => false);
     when(() => settings.getProtocol())
         .thenAnswer((_) async => TunnelProtocol.sstp);
+    when(() => settings.getProxySharingEnabled())
+        .thenAnswer((_) async => false);
+    when(() => settings.getProxySharingPort()).thenAnswer((_) async => 1080);
+    when(() => settings.saveProxySharingSettings(
+          enabled: any(named: 'enabled'),
+          port: any(named: 'port'),
+        )).thenAnswer((_) async {});
+    when(() => settings.getLastExpiryWarningDate())
+        .thenAnswer((_) async => null);
+    when(() => settings.saveLastExpiryWarningDate(any()))
+        .thenAnswer((_) async {});
+    when(() => settings.getUseCuratedRegion()).thenAnswer((_) async => false);
+    when(() => settings.saveUseCuratedRegion(any()))
+        .thenAnswer((_) async {});
     when(() => serverRepo.loadBookmarks()).thenAnswer((_) async => []);
     when(() => serverRepo.loadRecents()).thenAnswer((_) async => []);
     when(() => serverRepo.loadCached()).thenAnswer((_) async => []);
@@ -334,6 +348,119 @@ void main() {
       act: (bloc) => bloc.add(const UpdateBannerDismissed()),
       verify: (bloc) =>
           expect(bloc.state.updateBannerDismissed, isTrue),
+    );
+  });
+
+  group('expiry warning', () {
+    // A plain test rather than blocTest: the warning message is one-shot and
+    // gets overwritten by _onStarted's final `initialized: true` emit, so
+    // asserting on final bloc.state would miss it — the states stream is
+    // what a BlocListener actually reacts to.
+    test('emits a message when 3 days or fewer remain', () async {
+      when(() => subs.loadSubscription()).thenAnswer(
+        (_) async => Subscription(
+          expireTime: DateTime.now().add(const Duration(days: 2)),
+        ),
+      );
+      final bloc = build();
+      final states = <VpnState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const VpnStarted());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await sub.cancel();
+      await bloc.close();
+
+      final withMessage = states.where((s) => s.message != null);
+      expect(withMessage, isNotEmpty);
+      expect(withMessage.first.message!.isError, isFalse);
+      verify(() => settings.saveLastExpiryWarningDate(any())).called(1);
+    });
+
+    blocTest<VpnBloc, VpnState>(
+      'does not emit when more than 3 days remain',
+      setUp: () => when(() => subs.loadSubscription()).thenAnswer(
+        (_) async => Subscription(
+          expireTime: DateTime.now().add(const Duration(days: 10)),
+        ),
+      ),
+      build: build,
+      act: (bloc) => bloc.add(const VpnStarted()),
+      verify: (bloc) {
+        expect(bloc.state.message, isNull);
+        verifyNever(() => settings.saveLastExpiryWarningDate(any()));
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'does not repeat the same day',
+      setUp: () {
+        when(() => subs.loadSubscription()).thenAnswer(
+          (_) async => Subscription(
+            expireTime: DateTime.now().add(const Duration(days: 1)),
+          ),
+        );
+        when(() => settings.getLastExpiryWarningDate())
+            .thenAnswer((_) async => DateTime.now());
+      },
+      build: build,
+      act: (bloc) => bloc.add(const VpnStarted()),
+      verify: (bloc) {
+        expect(bloc.state.message, isNull);
+        verifyNever(() => settings.saveLastExpiryWarningDate(any()));
+      },
+    );
+  });
+
+  group('proxy sharing', () {
+    blocTest<VpnBloc, VpnState>(
+      'toggling persists enabled with the current port',
+      build: build,
+      act: (bloc) => bloc.add(const ProxySharingToggled(true)),
+      verify: (bloc) {
+        expect(bloc.state.proxySharingEnabled, isTrue);
+        verify(() => settings.saveProxySharingSettings(
+              enabled: true,
+              port: 1080,
+            )).called(1);
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'changing the port clamps to the valid range',
+      build: build,
+      act: (bloc) => bloc.add(const ProxySharingPortChanged(70000)),
+      verify: (bloc) => expect(bloc.state.proxySharingPort, 65535),
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'persist request saves the current enabled/port state',
+      build: build,
+      act: (bloc) => bloc
+        ..add(const ProxySharingPortChanged(9050))
+        ..add(const ProxySharingSettingsPersistRequested()),
+      verify: (_) => verify(() => settings.saveProxySharingSettings(
+            enabled: false,
+            port: 9050,
+          )).called(1),
+    );
+  });
+
+  group('region pool', () {
+    blocTest<VpnBloc, VpnState>(
+      'toggling persists the choice immediately',
+      build: build,
+      act: (bloc) => bloc.add(const RegionPoolChanged(true)),
+      verify: (bloc) {
+        expect(bloc.state.useCuratedRegion, isTrue);
+        verify(() => settings.saveUseCuratedRegion(true)).called(1);
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'defaults to the full list',
+      build: build,
+      act: (bloc) => bloc.add(const VpnStarted()),
+      verify: (bloc) => expect(bloc.state.useCuratedRegion, isFalse),
     );
   });
 }

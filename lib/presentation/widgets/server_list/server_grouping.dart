@@ -36,11 +36,5 @@ List<VpnServer> filterByQuery(List<VpnServer> servers, String query) {
       .toList();
 }
 
-/// The base "12 servers" clause; the reachable count is appended separately.
-String serverCountLabel(List<VpnServer> servers) {
-  final plural = servers.length == 1 ? 'server' : 'servers';
-  return '${servers.length} $plural';
-}
-
 int reachableCount(List<VpnServer> servers) =>
     servers.where((s) => s.ping != null).length;

@@ -48,7 +48,6 @@ class ServerListTile extends StatelessWidget {
           ),
         ),
         title: h.country.toUpperCase(),
-        subtitle: serverCountLabel(h.servers),
         reachable: reachableCount(h.servers),
         isExpanded: h.isExpanded,
         roundBottom: !h.isExpanded,

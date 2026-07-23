@@ -84,6 +84,10 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<SoftEtherDisableNatTChanged>(_onSoftEtherDisableNatT);
     on<SoftEtherNatTRetryWaitChanged>(_onSoftEtherNatTRetryWait);
     on<SoftEtherNatTSettingsPersistRequested>(_onPersistSoftEtherNatT);
+    on<ProxySharingToggled>(_onProxySharingToggled);
+    on<ProxySharingPortChanged>(_onProxySharingPort);
+    on<ProxySharingSettingsPersistRequested>(_onPersistProxySharing);
+    on<RegionPoolChanged>(_onRegionPool);
     on<ServersViewModeChanged>(_onServersViewMode);
     on<ProtocolChanged>(_onProtocol);
     on<UsernameChanged>(_onUsername);
@@ -105,6 +109,9 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     final pingMode = await _settings.getPingMode();
     final disableNatT = await _settings.getSoftEtherDisableNatT();
     final natTRetryWait = await _settings.getSoftEtherNatTRetryWaitSeconds();
+    final proxySharingEnabled = await _settings.getProxySharingEnabled();
+    final proxySharingPort = await _settings.getProxySharingPort();
+    final useCuratedRegion = await _settings.getUseCuratedRegion();
     final flatView = await _settings.getServersFlatView();
     final protocol = await _settings.getProtocol();
     final bookmarks = await _serverRepo.loadBookmarks();
@@ -125,6 +132,9 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         pingMode: pingMode,
         softEtherDisableNatT: disableNatT,
         softEtherNatTRetryWaitSeconds: natTRetryWait,
+        proxySharingEnabled: proxySharingEnabled,
+        proxySharingPort: proxySharingPort,
+        useCuratedRegion: useCuratedRegion,
         serversFlatView: flatView,
         protocol: protocol,
         bookmarkedServers: bookmarks,
@@ -171,6 +181,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
               : false,
         ),
       );
+      await _maybeWarnExpiry(sub.expireTime, emit);
     } on SubscriptionExpiredException catch (e) {
       await _handleExpired(e.message, emit);
       emit(state.copyWith(isFetchingServers: false));
@@ -185,6 +196,37 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
       );
     }
   }
+
+  /// Surfaces a one-shot "expires soon" banner when 0–3 days remain, at most
+  /// once per calendar day (tracked via [SettingsRepository]).
+  Future<void> _maybeWarnExpiry(
+    DateTime? expireTime,
+    Emitter<VpnState> emit,
+  ) async {
+    if (expireTime == null) return;
+    final daysLeft = expireTime.difference(DateTime.now()).inDays;
+    if (daysLeft < 0 || daysLeft > 3) return;
+
+    final now = DateTime.now();
+    final lastWarned = await _settings.getLastExpiryWarningDate();
+    if (lastWarned != null && _isSameDay(lastWarned, now)) return;
+
+    await _settings.saveLastExpiryWarningDate(now);
+    emit(
+      state.copyWith(
+        message: _msg(
+          daysLeft == 0
+              ? 'Your subscription expires today.'
+              : 'Your subscription expires in $daysLeft '
+                    '${daysLeft == 1 ? 'day' : 'days'}.',
+          isError: false,
+        ),
+      ),
+    );
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   Future<void> _handleExpired(String message, Emitter<VpnState> emit) async {
     await _serverRepo.clearServers();
@@ -429,6 +471,38 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
   ) async {
     emit(state.copyWith(pingMode: event.mode));
     await _settings.savePingMode(event.mode);
+  }
+
+  Future<void> _onProxySharingToggled(
+    ProxySharingToggled event,
+    Emitter<VpnState> emit,
+  ) async {
+    emit(state.copyWith(proxySharingEnabled: event.enabled));
+    await _settings.saveProxySharingSettings(
+      enabled: event.enabled,
+      port: state.proxySharingPort,
+    );
+  }
+
+  void _onProxySharingPort(
+    ProxySharingPortChanged event,
+    Emitter<VpnState> emit,
+  ) => emit(state.copyWith(proxySharingPort: event.port.clamp(1024, 65535)));
+
+  Future<void> _onPersistProxySharing(
+    ProxySharingSettingsPersistRequested event,
+    Emitter<VpnState> emit,
+  ) => _settings.saveProxySharingSettings(
+    enabled: state.proxySharingEnabled,
+    port: state.proxySharingPort,
+  );
+
+  Future<void> _onRegionPool(
+    RegionPoolChanged event,
+    Emitter<VpnState> emit,
+  ) async {
+    emit(state.copyWith(useCuratedRegion: event.useCuratedRegion));
+    await _settings.saveUseCuratedRegion(event.useCuratedRegion);
   }
 
   void _onSoftEtherDisableNatT(

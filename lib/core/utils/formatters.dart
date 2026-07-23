@@ -26,6 +26,24 @@ class Formatters {
     return '${_months[local.month - 1]} ${local.day}, ${local.year}  $h:$m';
   }
 
+  /// Remaining time until [expireTime], e.g. `2 months, 3 days left`,
+  /// `12 days left`, `Less than a day left`, or `Expired`.
+  static String remaining(DateTime? expireTime) {
+    if (expireTime == null) return 'Unknown';
+    final diff = expireTime.difference(DateTime.now());
+    if (diff.isNegative) return 'Expired';
+    final totalDays = diff.inDays;
+    if (totalDays == 0) return 'Less than a day left';
+    if (totalDays < 30) {
+      return '$totalDays ${totalDays == 1 ? 'day' : 'days'} left';
+    }
+    final months = totalDays ~/ 30;
+    final days = totalDays % 30;
+    final monthsPart = '$months ${months == 1 ? 'month' : 'months'}';
+    if (days == 0) return '$monthsPart left';
+    return '$monthsPart, $days ${days == 1 ? 'day' : 'days'} left';
+  }
+
   /// Human-readable byte count, e.g. `1.5 MB`.
   static String bytes(int value) => _humanize(value, _byteSuffixes);
 

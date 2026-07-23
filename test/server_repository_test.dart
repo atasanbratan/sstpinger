@@ -33,6 +33,7 @@ void main() {
         lastFetch: any(named: 'lastFetch'),
       ),
     ).thenAnswer((_) async {});
+    when(() => prefs.getUseCuratedRegion()).thenAnswer((_) async => false);
   });
 
   test('a fetch keeps ping values already measured for the same endpoint', () async {
@@ -50,6 +51,7 @@ void main() {
         username: any(named: 'username'),
         deviceId: any(named: 'deviceId'),
         count: any(named: 'count'),
+        pool: any(named: 'pool'),
       ),
     ).thenAnswer(
       (_) async => VpnServersResponse(

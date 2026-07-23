@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import '../../data/datasources/preferences_data_source.dart';
+import '../../data/datasources/socks5_proxy_data_source.dart';
 import '../../data/datasources/tcp_ping_service.dart';
 import '../../data/datasources/tls_ping_service.dart';
 import '../../data/datasources/vpn_remote_data_source.dart';
@@ -6,6 +9,7 @@ import '../../data/repositories/settings_repository_impl.dart';
 import '../../data/repositories/subscription_repository_impl.dart';
 import '../../data/repositories/tunnel_controller_impl.dart';
 import '../../data/repositories/vpn_server_repository_impl.dart';
+import '../../domain/repositories/proxy_sharing_controller.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../../domain/repositories/subscription_repository.dart';
 import '../../domain/repositories/tunnel_controller.dart';
@@ -33,21 +37,29 @@ class AppDependencies {
   final SettingsRepository settingsRepository;
   final TcpPingService pingService;
 
+  /// Local SOCKS5 listener for sharing the tunnel with other LAN devices —
+  /// desktop (Linux/Windows) and Android; null on platforms with no
+  /// proxy-sharing implementation (iOS). Android works because
+  /// `sstp_flutter`'s VpnService never calls `addDisallowedApplication` for
+  /// its own package and this app never touches its opt-in per-app allowlist,
+  /// so this process's own outbound sockets ride the tunnel by default, same
+  /// as on desktop.
+  final ProxySharingController? proxySharing;
+
   AppDependencies._({
     required this.tunnel,
     required this.serverRepository,
     required this.subscriptionRepository,
     required this.settingsRepository,
     required this.pingService,
+    required this.proxySharing,
   });
 
-  /// [serverPool] is the backend pool this build fetches from (see
-  /// [AppVariant.serverPool]) — null for the default full list.
-  factory AppDependencies.create({String? serverPool}) {
+  factory AppDependencies.create() {
     // Data sources (shared): one preferences store backs the server,
     // subscription and settings repositories.
     final prefs = PreferencesDataSource();
-    final remote = VpnRemoteDataSource(pool: serverPool);
+    final remote = VpnRemoteDataSource();
 
     return AppDependencies._(
       tunnel: TunnelControllerImpl.forPlatform(),
@@ -55,6 +67,10 @@ class AppDependencies {
       subscriptionRepository: SubscriptionRepositoryImpl(remote, prefs),
       settingsRepository: SettingsRepositoryImpl(prefs),
       pingService: const TcpPingService(),
+      proxySharing:
+          (Platform.isLinux || Platform.isWindows || Platform.isAndroid)
+              ? Socks5ProxyDataSource()
+              : null,
     );
   }
 
@@ -63,6 +79,7 @@ class AppDependencies {
     disconnect: DisconnectTunnel(tunnel),
     watch: WatchTunnel(tunnel),
     settings: settingsRepository,
+    proxySharing: proxySharing,
   );
 
   VpnBloc buildVpnBloc() => VpnBloc(
@@ -79,5 +96,8 @@ class AppDependencies {
     settingsRepository: settingsRepository,
   );
 
-  void dispose() => tunnel.dispose();
+  void dispose() {
+    tunnel.dispose();
+    proxySharing?.dispose();
+  }
 }

@@ -79,4 +79,31 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<void> saveProtocol(TunnelProtocol protocol) =>
       _prefs.saveProtocol(protocol);
+
+  @override
+  Future<DateTime?> getLastExpiryWarningDate() =>
+      _prefs.getLastExpiryWarningDate();
+
+  @override
+  Future<void> saveLastExpiryWarningDate(DateTime date) =>
+      _prefs.saveLastExpiryWarningDate(date);
+
+  @override
+  Future<bool> getProxySharingEnabled() => _prefs.getProxySharingEnabled();
+
+  @override
+  Future<int> getProxySharingPort() => _prefs.getProxySharingPort();
+
+  @override
+  Future<void> saveProxySharingSettings({
+    required bool enabled,
+    required int port,
+  }) => _prefs.saveProxySharingSettings(enabled: enabled, port: port);
+
+  @override
+  Future<bool> getUseCuratedRegion() => _prefs.getUseCuratedRegion();
+
+  @override
+  Future<void> saveUseCuratedRegion(bool value) =>
+      _prefs.saveUseCuratedRegion(value);
 }

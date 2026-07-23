@@ -18,20 +18,22 @@ user's officially-installed SoftEther VPN Client (`findWindowsInstall`). SoftEth
 transport (NAT-T on/off + retry wait) is user-configurable and rides on
 `TunnelConfig` too.
 
-### Product variants (one codebase, three entry points)
+### One build, every onboarding path
 
-Selected by the entry point via `AppVariant` ([lib/app/app_variant.dart](lib/app/app_variant.dart)):
+There used to be separate `local` (activation code) and `foreign` (USDT
+subscription) variants/entry points; they were merged into a single build —
+`lib/main.dart` is now the only VPN-facing entry point, and
+`OnboardingScreen` ([lib/presentation/screens/onboarding_screen.dart](lib/presentation/screens/onboarding_screen.dart))
+offers every path (free trial, activation code, USDT subscription/BEP20+TRC20)
+on one screen, backed by the `onboarding/` subfolder's `TrialCta`,
+`ActivationSection`, `SubscriptionSection`. Which regional server pool to
+fetch (the curated `ASTU` pool vs. the full list) is now a runtime settings
+toggle (`VpnState.useCuratedRegion`), not a build-time distinction.
 
-| Variant | Entry point | Onboarding | Identity | Build |
-|---------|-------------|-----------|----------|-------|
-| local   | `lib/main.dart`         | activation code                 | shared (`standard` flavor) | `--flavor standard --target lib/main.dart` |
-| foreign | `lib/main_foreign.dart` | USDT subscription (BEP20/TRC20) | shared (`standard` flavor) | `--flavor standard --target lib/main_foreign.dart` |
-| admin   | `lib/main_admin.dart`   | admin token                     | separate app id (`admin` flavor) | `--flavor admin --target lib/main_admin.dart` |
-
-- local + foreign share `SstpVpnApp`; only the onboarding gate differs
-  (`MainVpnScreen` picks `ActivationScreen` vs `SubscriptionScreen` by variant).
-- admin is a separate root (`AdminApp`) — no VPN tunnel, just user/server
-  management. Lives under `lib/ui/features/admin/`.
+The admin/operator console is not part of this repository at all — it's its
+own project (`sstp_shield_admin`), talking to the same backend via an admin
+token. This repo builds only the VPN client: `--flavor standard --target
+lib/main.dart`.
 
 ### Backend (Google Apps Script)
 
@@ -45,9 +47,18 @@ Client-side display values that must mirror `Config.js` live in
 ## Golden rules
 
 1. **Keep files small.** A widget file over ~200 lines is a smell — extract
-   sub-widgets. A `build` method over ~40 lines is a smell — split it.
+   sub-widgets. A `build` method over ~40 lines is a smell — split it. When a
+   screen or sheet grows enough sub-widgets to matter, give it its own
+   subfolder next to the original file (e.g. `profile_settings_sheet.dart` +
+   `profile_settings/*.dart`, `server_list_view.dart` + `server_list/*.dart`,
+   `main_vpn_screen.dart` + `main_vpn_screen/*.dart`) rather than flattening
+   everything into `widgets/`. The original file stays as a thin orchestrator
+   that assembles the extracted pieces and wires bloc state/events to them.
 2. **One widget = one responsibility.** If a widget both lays out chrome and
-   computes/formats data, split those concerns.
+   computes/formats data, split those concerns — pull the data
+   transform (sorting, grouping, filtering, formatting) into a plain,
+   testable function beside the widgets rather than leaving it in `build()`
+   (e.g. `server_list/server_grouping.dart`).
 3. **No magic literals.** Colors come from `AppColors`, never `Color(0xFF...)`
    inline. Formatting comes from `lib/core/utils/`, never re-implemented inline.
 4. **Never pass helper functions through constructors** (e.g. a `getFlagEmoji`
@@ -91,7 +102,7 @@ lib/
   core/
     di/               injection.dart — the composition root (AppDependencies)
     config/, utils/   Cross-cutting helpers
-  app/                app.dart (providers + MaterialApp), app_variant.dart
+  app/                app.dart (providers + MaterialApp)
 ```
 
 ### Dependency direction (must not be violated)
@@ -157,6 +168,18 @@ Add new shared logic here instead of duplicating it in a widget.
 - User-facing messages ride on one-shot state fields (`VpnMessage`,
   `ConnectionError`) and are turned into SnackBars by a `BlocListener` in
   `main_vpn_screen.dart` — widgets deep in the tree do not build SnackBars.
+- Extracted leaf widgets take primitive values/entities + `VoidCallback`s or
+  `ValueChanged<T>` constructor params (see `server_ping_action.dart`,
+  `profile_settings/protocol_card.dart`) rather than reading a bloc
+  themselves, so they stay independently testable. A widget that already owns
+  the surrounding scroll/tab state (e.g. `ServerListView`,
+  `ServersHeaderBlock`) may read/dispatch to a bloc directly instead of
+  threading every event through its parent — match whichever pattern the
+  file you're editing already uses.
+- Repeated small chrome (a section caption, a card's rounded-corner
+  background) belongs in its own tiny widget (`SettingsSectionHeader`,
+  `SettingsCard`) the first time it's duplicated a third time, not
+  re-inlined at each call site.
 
 ## Verifying changes
 
@@ -172,9 +195,9 @@ Add new shared logic here instead of duplicating it in a widget.
 ## Cleanup backlog (in priority order)
 
 1. Finish migrating remaining inline colors to `AppColors`
-   (`profile_settings_sheet.dart`, `activation_screen.dart`).
-2. Split the large widgets into smaller files:
-   `profile_settings_sheet.dart` and `server_list_view.dart`
-   (dialogs/sheets belong in their own files).
-3. Broaden the test suite — add widget tests and cover the tunnel data sources.
+   (`profile_settings/*.dart`, `activation_screen.dart`) — surfaced again
+   when `profile_settings_sheet.dart` and `server_list_view.dart` were split
+   per the subfolder pattern above; the extracted files kept their original
+   inline `Colors.white38`-style literals rather than migrating them.
+2. Broaden the test suite — add widget tests and cover the tunnel data sources.
 </content>

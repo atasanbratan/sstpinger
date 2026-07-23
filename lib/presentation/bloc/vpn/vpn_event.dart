@@ -209,6 +209,38 @@ class SubscriptionSubmitted extends VpnEvent {
   List<Object?> get props => [network, txHash];
 }
 
+/// Desktop only: toggles sharing the VPN tunnel via a local SOCKS5 proxy.
+class ProxySharingToggled extends VpnEvent {
+  final bool enabled;
+  const ProxySharingToggled(this.enabled);
+
+  @override
+  List<Object?> get props => [enabled];
+}
+
+class ProxySharingPortChanged extends VpnEvent {
+  final int port;
+  const ProxySharingPortChanged(this.port);
+
+  @override
+  List<Object?> get props => [port];
+}
+
+class ProxySharingSettingsPersistRequested extends VpnEvent {
+  const ProxySharingSettingsPersistRequested();
+}
+
+/// Toggles fetching from the curated regional pool vs. the full server list,
+/// and persists the choice immediately (like a protocol pick, not a
+/// slider-drag setting).
+class RegionPoolChanged extends VpnEvent {
+  final bool useCuratedRegion;
+  const RegionPoolChanged(this.useCuratedRegion);
+
+  @override
+  List<Object?> get props => [useCuratedRegion];
+}
+
 /// Dismisses the advisory update banner for the current `latestVersion`. It is
 /// advisory only — the banner stays hidden this session for that version, but a
 /// blocking dialog (version below `minVersion`) ignores it and always shows.

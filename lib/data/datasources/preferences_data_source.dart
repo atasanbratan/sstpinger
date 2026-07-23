@@ -34,6 +34,10 @@ class PreferencesDataSource {
   static const String _keySoftEtherNatTRetryWaitSec =
       'softether_natt_retry_wait_sec';
   static const String _keyFetchServerCount = 'fetch_server_count';
+  static const String _keyLastExpiryWarningDate = 'last_expiry_warning_date';
+  static const String _keyProxySharingEnabled = 'proxy_sharing_enabled';
+  static const String _keyProxySharingPort = 'proxy_sharing_port';
+  static const String _keyUseCuratedRegion = 'use_curated_region';
 
   static const int defaultPingTimeoutMs = 1500;
   static const int defaultPingBatchSize = 100;
@@ -54,6 +58,14 @@ class PreferencesDataSource {
   // falling back to the other transport.
   static const bool defaultSoftEtherDisableNatT = true;
   static const int defaultSoftEtherNatTRetryWaitSec = 15;
+
+  static const bool defaultProxySharingEnabled = false;
+  static const int defaultProxySharingPort = 1080;
+
+  // Full list by default; the curated pool is an opt-in for whichever ISP
+  // it's built for (see SettingsRepository.getUseCuratedRegion doc).
+  static const bool defaultUseCuratedRegion = false;
+  static const String curatedRegionPool = 'ASTU';
 
   Future<String> getUsername() async {
     final prefs = await SharedPreferences.getInstance();
@@ -113,6 +125,20 @@ class PreferencesDataSource {
     final raw = prefs.getString(_keyLastFetch);
     if (raw == null || raw.isEmpty) return null;
     return DateTime.tryParse(raw);
+  }
+
+  /// The calendar date (local, midnight-truncated) the expiry-soon banner was
+  /// last shown, so it fires at most once per day.
+  Future<DateTime?> getLastExpiryWarningDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyLastExpiryWarningDate);
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  Future<void> saveLastExpiryWarningDate(DateTime date) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLastExpiryWarningDate, date.toIso8601String());
   }
 
   Future<int> getPingTimeoutMs() async {
@@ -187,6 +213,18 @@ class PreferencesDataSource {
     await prefs.setInt(_keySoftEtherNatTRetryWaitSec, retryWaitSec);
   }
 
+  /// Whether to fetch from the curated regional pool (servers pre-verified
+  /// reachable from a specific ISP) instead of the full server list.
+  Future<bool> getUseCuratedRegion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyUseCuratedRegion) ?? defaultUseCuratedRegion;
+  }
+
+  Future<void> saveUseCuratedRegion(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyUseCuratedRegion, value);
+  }
+
   /// Servers-tab layout: true = flat list, false = grouped by country.
   Future<bool> getServersFlatView() async {
     final prefs = await SharedPreferences.getInstance();
@@ -207,6 +245,28 @@ class PreferencesDataSource {
   Future<void> saveProtocol(TunnelProtocol protocol) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyProtocol, protocol.name);
+  }
+
+  /// Desktop-only: whether this device shares its VPN tunnel via a local
+  /// SOCKS5 proxy, and which port it listens on.
+  Future<bool> getProxySharingEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyProxySharingEnabled) ??
+        defaultProxySharingEnabled;
+  }
+
+  Future<int> getProxySharingPort() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyProxySharingPort) ?? defaultProxySharingPort;
+  }
+
+  Future<void> saveProxySharingSettings({
+    required bool enabled,
+    required int port,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyProxySharingEnabled, enabled);
+    await prefs.setInt(_keyProxySharingPort, port);
   }
 
   Future<PingMode> getPingMode() async {

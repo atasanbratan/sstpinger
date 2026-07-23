@@ -30,19 +30,15 @@ class ApkInstaller {
   /// Returns the direct-download URL for the best-matching per-ABI APK.
   ///
   /// Pattern:
-  ///   {_releaseBase}/v{version}/sstp-shield-{variant}-{abi}.apk
+  ///   {_releaseBase}/v{version}/sstp-shield-{abi}.apk
   ///
-  /// [variant] must be `"local"` or `"foreign"`.
-  /// Falls back to the universal APK (`sstp-shield-{variant}.apk`) when the
-  /// device ABI is not one of the three known splits.
-  static Future<String> apkUrl({
-    required String version,
-    required String variant,
-  }) async {
+  /// Falls back to the universal APK (`sstp-shield.apk`) when the device ABI
+  /// is not one of the three known splits.
+  static Future<String> apkUrl({required String version}) async {
     final abi = await _primaryAbi();
     final tag = 'v$version';
     final suffix = _knownAbis.contains(abi) ? '-$abi' : '';
-    final filename = 'sstp-shield-$variant$suffix.apk';
+    final filename = 'sstp-shield$suffix.apk';
     return '$_releaseBase/$tag/$filename';
   }
 

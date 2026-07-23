@@ -49,8 +49,11 @@ class SubscriptionConfig {
     ),
   ];
 
-  // Must match CONFIG.PRICE_TIERS in Config.js. Single plan: 1 month.
+  // Must match CONFIG.PRICE_TIERS in Config.js.
   static const List<SubscriptionPlan> plans = [
     SubscriptionPlan(priceUsdt: 3, months: 1),
+    SubscriptionPlan(priceUsdt: 7, months: 3),
+    SubscriptionPlan(priceUsdt: 13, months: 6),
+    SubscriptionPlan(priceUsdt: 24, months: 12),
   ];
 }

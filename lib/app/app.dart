@@ -9,19 +9,14 @@ import '../presentation/bloc/connection/connection_bloc.dart';
 import '../presentation/bloc/vpn/vpn_bloc.dart';
 import '../presentation/screens/main_vpn_screen.dart';
 import '../presentation/theme/theme.dart';
-import 'app_variant.dart';
 
-/// Root widget for the VPN-facing variants (local + foreign).
-///
-/// Both share the exact same connected experience; only the onboarding gate
-/// differs (activation code vs. crypto subscription), which is selected by
-/// [variant] and resolved inside [MainVpnScreen]. Owns the object graph
-/// ([AppDependencies]) and provides the two blocs above [MaterialApp], so pushed
-/// routes and modal sheets can read them.
+/// Root widget for the app: onboarding (free trial, activation code, or USDT
+/// subscription — all offered on one gate screen, see
+/// `OnboardingScreen`/`MainVpnScreen`) through to the connected experience.
+/// Owns the object graph ([AppDependencies]) and provides the two blocs above
+/// [MaterialApp], so pushed routes and modal sheets can read them.
 class SstpVpnApp extends StatefulWidget {
-  final AppVariant variant;
-
-  const SstpVpnApp({super.key, required this.variant});
+  const SstpVpnApp({super.key});
 
   @override
   State<SstpVpnApp> createState() => _SstpVpnAppState();
@@ -36,7 +31,7 @@ class _SstpVpnAppState extends State<SstpVpnApp> {
   @override
   void initState() {
     super.initState();
-    _deps = AppDependencies.create(serverPool: widget.variant.serverPool);
+    _deps = AppDependencies.create();
     _connectionBloc = _deps.buildConnectionBloc();
 
     // The live-stats notification (duration/speed + Disconnect action) is
@@ -82,7 +77,7 @@ class _SstpVpnAppState extends State<SstpVpnApp> {
         title: 'SSTP Shield',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: MainVpnScreen(variant: widget.variant),
+        home: const MainVpnScreen(),
       ),
     );
   }

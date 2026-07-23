@@ -7,6 +7,7 @@ import '../../../domain/entities/tunnel_config.dart';
 import '../../../domain/entities/tunnel_status.dart';
 import '../../../domain/entities/tunnel_traffic.dart';
 import '../../../domain/entities/tunnel_update.dart';
+import '../../../domain/repositories/proxy_sharing_controller.dart';
 import '../../../domain/repositories/settings_repository.dart';
 import '../../../domain/usecases/connect_tunnel.dart';
 import '../../../domain/usecases/disconnect_tunnel.dart';
@@ -31,6 +32,10 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
   final WatchTunnel _watch;
   final SettingsRepository _settings;
 
+  /// Desktop and Android; null on platforms with no proxy-sharing
+  /// implementation (iOS).
+  final ProxySharingController? _proxySharing;
+
   StreamSubscription<TunnelUpdate>? _subscription;
   int _errorSeq = 0;
 
@@ -47,10 +52,12 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
     required DisconnectTunnel disconnect,
     required WatchTunnel watch,
     required SettingsRepository settings,
+    ProxySharingController? proxySharing,
   }) : _connect = connect,
        _disconnect = disconnect,
        _watch = watch,
        _settings = settings,
+       _proxySharing = proxySharing,
        super(const VpnConnectionState.initial()) {
     on<ConnectionStarted>(_onStarted);
     on<ConnectRequested>(_onConnect);
@@ -131,6 +138,7 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
             duration: update.duration,
           ),
         );
+        unawaited(_startProxySharingIfEnabled());
       case TunnelStatus.connecting:
         emit(state.copyWith(status: TunnelStatus.connecting));
       case TunnelStatus.disconnected:
@@ -149,14 +157,27 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
               label: update.status == TunnelStatus.disconnected ? '' : null,
             ),
           );
+          unawaited(_proxySharing?.stop());
         }
     }
+  }
+
+  /// Starts the local SOCKS5 listener if the user has proxy sharing enabled
+  /// in settings. No-op on platforms without [_proxySharing] (mobile).
+  Future<void> _startProxySharingIfEnabled() async {
+    final proxy = _proxySharing;
+    if (proxy == null) return;
+    final enabled = await _settings.getProxySharingEnabled();
+    if (!enabled) return;
+    final port = await _settings.getProxySharingPort();
+    await proxy.start(port);
   }
 
   /// Reacts to a lost connection: either schedule a retry (staying in a
   /// "connecting" state) or, if retries are off or exhausted, settle on
   /// disconnected with an explanatory error.
   void _handleDrop(String reason, Emitter<VpnConnectionState> emit) {
+    unawaited(_proxySharing?.stop());
     final canRetry = !_intentionalDisconnect &&
         _lastConfig != null &&
         _retryCount > 0 &&
@@ -213,6 +234,7 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
   Future<void> close() {
     _cancelReconnect();
     _subscription?.cancel();
+    unawaited(_proxySharing?.stop());
     return super.close();
   }
 }

@@ -9,7 +9,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../app/app_variant.dart';
 import '../../domain/entities/app_update_info.dart';
 import '../../domain/entities/tunnel_config.dart';
 import '../../domain/entities/tunnel_status.dart';
@@ -22,17 +21,15 @@ import '../widgets/app_update_banner.dart';
 import '../widgets/app_update_dialog.dart';
 import '../widgets/profile_settings_sheet.dart';
 import '../widgets/server_list_view.dart';
-import 'activation_screen.dart';
 import 'main_vpn_screen/connection_hero.dart';
 import 'main_vpn_screen/edit_username_dialog.dart';
 import 'main_vpn_screen/main_vpn_app_bar.dart';
 import 'main_vpn_screen/servers_header_block.dart';
-import 'subscription_screen.dart';
+import 'onboarding_screen.dart';
+import 'subscription_renew_screen.dart';
 
 class MainVpnScreen extends StatefulWidget {
-  final AppVariant variant;
-
-  const MainVpnScreen({super.key, this.variant = AppVariant.local});
+  const MainVpnScreen({super.key});
 
   @override
   State<MainVpnScreen> createState() => _MainVpnScreenState();
@@ -147,13 +144,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     AppUpdateInfo updateInfo,
     String version,
   ) async {
-    // Build the direct-download URL for this device's ABI and variant.
+    // Build the direct-download URL for this device's ABI.
     final String apkUrl;
     try {
-      apkUrl = await ApkInstaller.apkUrl(
-        version: version,
-        variant: widget.variant.name, // 'local' | 'foreign'
-      );
+      apkUrl = await ApkInstaller.apkUrl(version: version);
     } catch (_) {
       // ABI detection failed — fall back to the browser.
       await _launchBrowser(updateInfo.updateUrl);
@@ -361,9 +355,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           }
 
           if (vpn.needsOnboarding) {
-            return widget.variant.isForeign
-                ? const SubscriptionScreen()
-                : const ActivationScreen();
+            return const OnboardingScreen();
           }
 
           return _buildConnectedScaffold(context, vpn);
@@ -492,7 +484,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   void _openSubscription() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (routeContext) => SubscriptionScreen(
+        builder: (routeContext) => SubscriptionRenewScreen(
           onCompleted: () => Navigator.of(routeContext).pop(),
         ),
       ),
@@ -500,7 +492,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   }
 
   void _showProfileAndSettingsModal() {
-    final isForeign = widget.variant.isForeign;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (routeContext) => ProfileSettingsSheet(
@@ -512,23 +503,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             Navigator.pop(routeContext);
             _promptEditUsername();
           },
-          renewLabel: isForeign ? 'SUBSCRIBE / EXTEND' : 'RENEW ACTIVATION CODE',
           onRenew: () {
             Navigator.pop(routeContext);
-            if (isForeign) {
-              _openSubscription();
-            } else {
-              _renewActivationCode();
-            }
+            _renewActivationCode();
           },
-          // Loading the code from a file is a local-variant hand-off; the foreign
-          // variant renews by paying, so it has no file option.
-          onRenewFromFile: isForeign
-              ? null
-              : () {
-                  Navigator.pop(routeContext);
-                  _renewActivationCodeFromFile();
-                },
+          onRenewFromFile: () {
+            Navigator.pop(routeContext);
+            _renewActivationCodeFromFile();
+          },
+          onSubscribe: () {
+            Navigator.pop(routeContext);
+            _openSubscription();
+          },
         ),
       ),
     );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// The small bold caption above each settings section ("USER PROFILE",
-/// "SUBSCRIPTION", ...). Pulled out because the same style was repeated
+import '../../theme/app_colors.dart';
+
+/// The small bold caption above each settings section ("ACCOUNT",
+/// "NETWORK", ...). Pulled out because the same style was repeated
 /// verbatim at every section boundary in the settings sheet.
 class SettingsSectionHeader extends StatelessWidget {
   final String title;
@@ -15,7 +17,7 @@ class SettingsSectionHeader extends StatelessWidget {
       style: const TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.bold,
-        color: Colors.white38,
+        color: AppColors.textFaint,
       ),
     );
   }
