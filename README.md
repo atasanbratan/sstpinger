@@ -49,7 +49,15 @@ because that backend has never been proven against a live server.
 ## Features
 
 - **Onboarding** — an activation code, a USDT subscription with on-chain
-  verification, or a one-time free trial, all offered on one screen.
+  verification, or a one-time free trial, all offered on one screen. None of
+  these require an account.
+- **Google Sign-In (optional)** — link a Google account for multi-session
+  access that survives a reinstall; offered as a one-time nudge after your
+  first trial/subscription rather than a gate in front of them. Manage
+  signed-in devices from Settings → Active sessions.
+- **Proxy sharing** — once connected, share the tunnel with other devices on
+  your network over a local SOCKS5 proxy (desktop + Android); the port is
+  chosen automatically.
 - **Server registry** — nodes fetched from the backend and cached for offline use.
 - **Latency sorting** — raw TCP probes to each node's `ip:port`, run in configurable
   concurrent batches, with a live progress counter.
@@ -195,6 +203,8 @@ ping-and-sort, bookmarks, activation import, and tunnel status mapping.
 | [`sstp_client`](https://github.com/sstp-pinger/sstp_client) | Pure-Dart SSTP + PPP protocol stack and tunnel backends |
 | [`sstp_vpn_plugin`](https://github.com/sstp-pinger/sstp_vpn_plugin) | Flutter plugin wrapping it for Linux + Windows |
 | [`softether_client`](https://github.com/sstp-pinger/softether_client) | Pure-Dart driver for the official SoftEther VPN Client (desktop) |
+| `sstp_shield_server` | The backend (Go on Vercel + Neon Postgres) this app talks to — private repo |
+| [`sstp_shield_cron`](https://github.com/sstp-pinger/sstp_shield_cron) | Scheduled trigger for the backend's VPN Gate server-list sync |
 
 ## License
 

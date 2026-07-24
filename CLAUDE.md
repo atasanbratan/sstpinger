@@ -5,9 +5,13 @@ Guidance for working in this repository. Read this before writing code.
 ## What this app is
 
 **SSTP Shield** is a Flutter VPN client. It fetches a server list from a backend
-(a Google Apps Script endpoint), lets the user ping/sort them, and brings up a
-system VPN tunnel. Auth is an activation-code / username model with a
-subscription expiry.
+(`sstp_shield_server`, a Go service on Vercel), lets the user ping/sort them, and
+brings up a system VPN tunnel. Auth is Google Sign-In with multi-session support
+(up to a configurable device cap), with the original activation-code / username
+model still supported in parallel for users who don't sign in — either identity
+resolves to a subscription expiry. Google Sign-In is offered but never required:
+the free trial and USDT-subscription paths stay fully anonymous-capable, since
+that's the point of the crypto payment option.
 
 **Tunnel backends.** Mobile uses the `sstp_flutter` plugin (SSTP only). Desktop
 (Linux/Windows) uses `sstp_vpn_plugin` for SSTP and `softether_client` for
@@ -17,6 +21,21 @@ desktop-only — bundled on Linux (pkexec helper), and on Windows it drives the
 user's officially-installed SoftEther VPN Client (`findWindowsInstall`). SoftEther
 transport (NAT-T on/off + retry wait) is user-configurable and rides on
 `TunnelConfig` too.
+
+**Proxy sharing.** Once connected, `ConnectionBloc` starts a local SOCKS5
+server ([lib/data/datasources/socks5_proxy_data_source.dart](lib/data/datasources/socks5_proxy_data_source.dart),
+Linux/Windows/Android — no iOS implementation) so other LAN devices can route
+through this device's tunnel. The listener picks its own port automatically
+(tries 1080, falls back to whatever the OS hands out) — it's never
+user-configurable, and the actual bound port only exists in
+`VpnConnectionState.proxySharingPort` (nullable, live while running), not in
+settings. On Android this depends on a routing fix in the `sstp_flutter` fork
+(see the workspace root `CLAUDE.md`) — if proxy sharing looks broken there
+(can't reach other devices, or the *VPN itself* loses internet after
+connecting), check that repo's `IPTerminal.kt` before this one. Handshake/
+relay failures are logged via `FileLogger`/`logLine()` (surfaced in Settings →
+Diagnostic Logs) since they're otherwise invisible — extend that logging
+rather than adding raw `print`s if you touch this file.
 
 ### One build, every onboarding path
 
@@ -31,17 +50,39 @@ fetch (the curated `ASTU` pool vs. the full list) is now a runtime settings
 toggle (`VpnState.useCuratedRegion`), not a build-time distinction.
 
 The admin/operator console is not part of this repository at all — it's its
-own project (`sstp_shield_admin`), talking to the same backend via an admin
-token. This repo builds only the VPN client: `--target lib/main.dart`.
+own project (`sstp_shield_admin`), talking to the same backend, authenticated
+as an allowlisted operator via Google Sign-In (desktop loopback OAuth, since
+`google_sign_in` doesn't support Linux/Windows). This repo builds only the VPN
+client: `--target lib/main.dart` — no `--flavor` flag; the last remaining
+Android flavor was removed as pointless ceremony once the operator console
+moved to its own repo.
 
-### Backend (Google Apps Script)
+### Backend
 
-Source is a `clasp` project at `/home/ata/apps/clasp/SSTPinger/`:
-`Code.js` (router + auth + activation), `Payments.js` (foreign on-chain
-verification), `Admin.js` (admin actions), `Config.js` (**secrets to fill in**:
-wallet addresses, Etherscan/TronScan keys, price tiers, `ADMIN_TOKEN`).
-Client-side display values that must mirror `Config.js` live in
-[lib/core/config/subscription_config.dart](lib/core/config/subscription_config.dart).
+`sstp_shield_server` (sibling repo) — a Go service on Vercel backed by Neon
+Postgres. Replaced the old Apps Script + Google Sheets backend (`../backend/`,
+left in place but retired). See that repo's own README for the full API
+surface and deploy setup; the pieces most relevant from this repo's side:
+
+- [lib/core/config/backend_config.dart](lib/core/config/backend_config.dart) —
+  `API_BASE_URL` and `GOOGLE_SERVER_CLIENT_ID` (the **Web** OAuth client, not
+  the Android/iOS/Desktop one — its audience must match the backend's
+  `GOOGLE_CLIENT_IDS`), both `--dart-define` compile-time constants. Google
+  Sign-In compiles disabled (`isGoogleConfigured == false`) unless
+  `GOOGLE_SERVER_CLIENT_ID` is passed — wired into `.github/workflows/release.yml`
+  from the `GOOGLE_SERVER_CLIENT_ID` repo variable; pass it manually for local
+  builds/`make run`.
+- [lib/data/datasources/vpn_remote_data_source.dart](lib/data/datasources/vpn_remote_data_source.dart) —
+  every client-facing endpoint accepts **either** a session `Authorization:
+  Bearer` token (Google-signed-in) **or** legacy `username`+`deviceId` in the
+  body, so both identity paths hit the same calls.
+- [lib/data/datasources/google_auth_service.dart](lib/data/datasources/google_auth_service.dart) —
+  wraps `google_sign_in` 7.x's singleton/`authenticate()` API.
+  `isSupported` is false on desktop (`supportsAuthenticate()`) or when
+  unconfigured, and `GoogleSignInSection`/`SessionsScreen` no-op accordingly.
+- Client-side display values that must mirror the backend's config (price
+  tiers, etc.) live in
+  [lib/core/config/subscription_config.dart](lib/core/config/subscription_config.dart).
 
 ## Golden rules
 
@@ -81,26 +122,30 @@ lib/
     entities/         Value types (Equatable): VpnServer, Subscription,
                       TunnelStatus, TunnelTraffic, TunnelConfig, TunnelUpdate...
     repositories/     INTERFACES: VpnServerRepository, SubscriptionRepository,
-                      SettingsRepository, TunnelController, PingService
+                      SettingsRepository, TunnelController, PingService,
+                      ProxySharingController
     usecases/         Single-responsibility operations (FetchServers, PingServers,
-                      ConnectTunnel, ImportActivation, ...)
+                      ConnectTunnel, ImportActivation, SignInWithGoogle, ...)
     failures/         ApiException, SubscriptionExpiredException (pure)
   data/               Implements the domain interfaces. No UI imports.
-    dto/              JSON <-> entity mapping (VpnServerDto)
-    datasources/      I/O: VpnRemoteDataSource (dio), PreferencesDataSource,
-                      TcpPingService, {Mobile,Desktop}TunnelDataSource
+    dto/              JSON <-> entity mapping (VpnServerDto, UserSessionDto)
+    datasources/      I/O: VpnRemoteDataSource (dio; dual Bearer/legacy auth),
+                      GoogleAuthService, PreferencesDataSource, TcpPingService,
+                      {Mobile,Desktop}TunnelDataSource, Socks5ProxyDataSource
     repositories/     *Impl classes; TunnelControllerImpl adapts callbacks->stream
   presentation/
     bloc/
-      connection/     ConnectionBloc (+ event/state) — tunnel lifecycle only
+      connection/     ConnectionBloc (+ event/state) — tunnel lifecycle +
+                      proxy-sharing start/stop only
       vpn/            VpnBloc (+ event/state) — servers, ping, search, bookmarks,
-                      onboarding, subscription, username
-    screens/          main_vpn_screen, activation_screen, subscription_screen
+                      onboarding, subscription, username, Google sign-in/sessions
+    screens/          main_vpn_screen, activation_screen, subscription_screen,
+                      settings/sessions_screen
     widgets/          Reusable presentational widgets
     theme/            AppColors, theme
   core/
     di/               injection.dart — the composition root (AppDependencies)
-    config/, utils/   Cross-cutting helpers
+    config/, utils/   Cross-cutting helpers (incl. lan_ip.dart, file_logger.dart)
   app/                app.dart (providers + MaterialApp)
 ```
 
