@@ -21,6 +21,12 @@
 # (never committed). If the secrets are absent the build still runs but falls
 # back to debug keys and says so; such an APK is not distributable, so tag builds
 # require the secrets to be set.
+#
+# GOOGLE_SERVER_CLIENT_ID (repo VARIABLE, not a secret — it's a public OAuth
+# client id) is passed to every `flutter build` as a dart-define so Google
+# Sign-In (lib/core/config/backend_config.dart) is actually enabled in the
+# builds this workflow produces. It must be the **Web** OAuth client, matching
+# the backend's GOOGLE_CLIENT_IDS — not the Android/iOS/Desktop client id.
 
 name: release
 
@@ -91,15 +97,19 @@ jobs:
         run: git config --global url."https://x-access-token:${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
       - run: flutter pub get
       - name: Build APKs (universal + per-ABI)
+        env:
+          GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
         run: |
           set -euo pipefail
           # Universal APK — bundles every ABI, the safe default for users who
           # don't know their device's architecture (~50 MB).
-          flutter build apk --release --flavor standard --target lib/main.dart
+          flutter build apk --release --flavor standard --target lib/main.dart \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
           mv build/app/outputs/flutter-apk/app-standard-release.apk \
              sstp-shield.apk
           # Per-ABI splits — much smaller downloads (~20 MB) for users who do.
-          flutter build apk --release --split-per-abi --flavor standard --target lib/main.dart
+          flutter build apk --release --split-per-abi --flavor standard --target lib/main.dart \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
           for abi in armeabi-v7a arm64-v8a x86_64; do
             mv "build/app/outputs/flutter-apk/app-${abi}-standard-release.apk" \
                "sstp-shield-${abi}.apk"
@@ -129,7 +139,12 @@ jobs:
         shell: bash
         run: git config --global url."https://x-access-token:${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
       - run: flutter pub get
-      - run: flutter build linux --release --target lib/main.dart
+      - name: Build Linux bundle
+        env:
+          GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+        run: |
+          flutter build linux --release --target lib/main.dart \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
 
       # Build the SoftEther client (vpnclient/vpncmd/hamcore) and compile the
       # privileged pkexec helper, so the SoftEther protocol works out of the box.
@@ -195,7 +210,13 @@ jobs:
         shell: bash
         run: git config --global url."https://x-access-token:${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
       - run: flutter pub get
-      - run: flutter build windows --release --target lib/main.dart
+      - name: Build Windows bundle
+        env:
+          GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+        shell: bash
+        run: |
+          flutter build windows --release --target lib/main.dart \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
 
       # Go/uTLS TLS relay, bundled beside the exe so SSTP can get past networks
       # that fingerprint-block Dart's TLS ClientHello. Auto-discovered by the app

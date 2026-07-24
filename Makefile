@@ -14,6 +14,13 @@
 
 TARGET := lib/main.dart
 
+# The **Web/server** Google OAuth client id (not the Android/iOS/Desktop one) —
+# matches the backend's GOOGLE_CLIENT_IDS. Empty disables Google Sign-In (the app
+# falls back to the activation-code/USDT paths). Set it in your shell:
+#   export GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com
+GOOGLE_SERVER_CLIENT_ID ?=
+DART_DEFINES := --dart-define=GOOGLE_SERVER_CLIENT_ID=$(GOOGLE_SERVER_CLIENT_ID)
+
 # Location of the sstp_vpn_plugin checkout that ships setup_privilege.sh.
 # Override on the command line if yours lives elsewhere:  make run PLUGIN=/path
 PLUGIN ?= ../sstp_vpn_plugin
@@ -73,7 +80,7 @@ stage-softether:
 
 .PHONY: build
 build: ## Build the release Linux bundle
-	flutter build linux --release --target $(TARGET)
+	flutter build linux --release --target $(TARGET) $(DART_DEFINES)
 
 .PHONY: priv
 priv: ## Grant CAP_NET_ADMIN to the built bundle (runs sudo; needs a prior build)
@@ -88,7 +95,7 @@ launch: ## Launch the privileged wrapper (needs a prior 'make priv')
 
 .PHONY: dev
 dev: ## Plain `flutter run` on Linux (fast; no tunnel privilege, so connect won't work)
-	flutter run -d linux --target $(TARGET)
+	flutter run -d linux --target $(TARGET) $(DART_DEFINES)
 
 SOFTETHER_PKG := $(dir $(SOFTETHER_SRC))
 
