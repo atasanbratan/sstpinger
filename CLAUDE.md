@@ -32,8 +32,7 @@ toggle (`VpnState.useCuratedRegion`), not a build-time distinction.
 
 The admin/operator console is not part of this repository at all — it's its
 own project (`sstp_shield_admin`), talking to the same backend via an admin
-token. This repo builds only the VPN client: `--flavor standard --target
-lib/main.dart`.
+token. This repo builds only the VPN client: `--target lib/main.dart`.
 
 ### Backend (Google Apps Script)
 

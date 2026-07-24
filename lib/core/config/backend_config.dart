@@ -3,7 +3,7 @@
 /// Both are compile-time constants supplied with `--dart-define` so the same
 /// source builds against a dev/prod backend without code edits:
 ///
-///   flutter build apk --flavor standard --target lib/main.dart \
+///   flutter build apk --target lib/main.dart \
 ///     --dart-define=API_BASE_URL=https://sstp-shield-server.vercel.app \
 ///     --dart-define=GOOGLE_SERVER_CLIENT_ID=xxxx.apps.googleusercontent.com
 ///

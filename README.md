@@ -97,7 +97,7 @@ cd sstp_shield
 flutter pub get
 
 # Android
-flutter build apk --release --flavor standard --target lib/main.dart
+flutter build apk --release --target lib/main.dart
 
 # Linux — needs: ninja-build libgtk-3-dev clang cmake pkg-config
 flutter build linux --release --target lib/main.dart

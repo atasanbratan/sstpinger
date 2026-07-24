@@ -103,15 +103,15 @@ jobs:
           set -euo pipefail
           # Universal APK — bundles every ABI, the safe default for users who
           # don't know their device's architecture (~50 MB).
-          flutter build apk --release --flavor standard --target lib/main.dart \
+          flutter build apk --release --target lib/main.dart \
             --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
-          mv build/app/outputs/flutter-apk/app-standard-release.apk \
+          mv build/app/outputs/flutter-apk/app-release.apk \
              sstp-shield.apk
           # Per-ABI splits — much smaller downloads (~20 MB) for users who do.
-          flutter build apk --release --split-per-abi --flavor standard --target lib/main.dart \
+          flutter build apk --release --split-per-abi --target lib/main.dart \
             --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
           for abi in armeabi-v7a arm64-v8a x86_64; do
-            mv "build/app/outputs/flutter-apk/app-${abi}-standard-release.apk" \
+            mv "build/app/outputs/flutter-apk/app-${abi}-release.apk" \
                "sstp-shield-${abi}.apk"
           done
 

@@ -28,6 +28,13 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
+    // One app identity for everyone — local activation codes, free trial, and
+    // USDT subscription are all offered on the same onboarding screen, not
+    // split across separate builds/flavors. (There used to be a "standard"
+    // flavor and a separate "admin" one; the operator console is its own
+    // project now — ~/Projects/sstp_shield_vpn_admin — and "standard" was the
+    // only flavor left, so both are gone. `flutter build apk --target
+    // lib/main.dart` needs no `--flavor` anymore.)
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.sstppinger.sstp_shield"
@@ -37,23 +44,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-    }
-
-    // One app identity for everyone ("standard") — local activation codes,
-    // free trial, and USDT subscription are all offered on the same
-    // onboarding screen, not split across separate builds.
-    //   flutter build apk --flavor standard --target lib/main.dart
-    //
-    // The "admin" flavor is gone: the operator console is its own project now
-    // (~/Projects/sstp_shield_vpn_admin), so it is neither shipped to users nor
-    // published in this repository.
-    flavorDimensions += "audience"
-    productFlavors {
-        create("standard") {
-            dimension = "audience"
-            // Inherits the default applicationId.
-            manifestPlaceholders["appName"] = "SSTP SHIELD"
-        }
+        manifestPlaceholders["appName"] = "SSTP SHIELD"
     }
 
     signingConfigs {
