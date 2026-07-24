@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:async/async.dart';
 
+import '../../core/logging/file_logger.dart';
 import '../../domain/repositories/proxy_sharing_controller.dart';
 
 /// Minimal SOCKS5 server (RFC 1928) so other LAN devices can route TCP
@@ -27,7 +28,11 @@ class Socks5ProxyDataSource implements ProxySharingController {
   Future<void> start(int port) async {
     if (_server != null) return;
     _server = await ServerSocket.bind(InternetAddress.anyIPv4, port);
-    _server!.listen(_handleClient, onError: (_) {});
+    logLine('[socks5] listening on ${InternetAddress.anyIPv4.address}:$port');
+    _server!.listen(
+      _handleClient,
+      onError: (e) => logLine('[socks5] server error: $e'),
+    );
   }
 
   @override
@@ -48,13 +53,17 @@ class Socks5ProxyDataSource implements ProxySharingController {
   }
 
   Future<void> _handleClient(Socket client) async {
+    final peer = '${client.remoteAddress.address}:${client.remotePort}';
+    logLine('[socks5] client connected: $peer');
     _clientSockets.add(client);
     _clientCount.add(_clientSockets.length);
     try {
       await _relay(client);
-    } catch (_) {
+    } catch (e, st) {
+      logLine('[socks5] $peer handshake/relay failed: $e\n$st');
       client.destroy();
     } finally {
+      logLine('[socks5] client disconnected: $peer');
       _clientSockets.remove(client);
       _clientCount.add(_clientSockets.length);
     }
@@ -119,7 +128,8 @@ class Socks5ProxyDataSource implements ProxySharingController {
         destPort,
         timeout: const Duration(seconds: 10),
       );
-    } catch (_) {
+    } catch (e) {
+      logLine('[socks5] connect to $host:$destPort failed: $e');
       client.add(_reply(0x05)); // connection refused
       return;
     }
