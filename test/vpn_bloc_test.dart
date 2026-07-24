@@ -2,9 +2,11 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:sstp_shield/domain/entities/app_update_info.dart';
+import 'package:sstp_shield/domain/entities/auth_session.dart';
 import 'package:sstp_shield/domain/entities/ping_mode.dart';
 import 'package:sstp_shield/domain/entities/subscription.dart';
 import 'package:sstp_shield/domain/entities/tunnel_protocol.dart';
+import 'package:sstp_shield/domain/entities/user_session.dart';
 import 'package:sstp_shield/domain/failures/failures.dart';
 import 'package:sstp_shield/domain/usecases/fetch_servers.dart';
 import 'package:sstp_shield/domain/usecases/import_activation.dart';
@@ -466,6 +468,95 @@ void main() {
       build: build,
       act: (bloc) => bloc.add(const VpnStarted()),
       verify: (bloc) => expect(bloc.state.useCuratedRegion, isFalse),
+    );
+  });
+
+  group('Google sign-in + sessions', () {
+    blocTest<VpnBloc, VpnState>(
+      'a successful sign-in stores the account and fetches servers',
+      setUp: () => when(() => subs.signInWithGoogle()).thenAnswer(
+        (_) async => const AuthSession(email: 'user@example.com'),
+      ),
+      build: build,
+      act: (bloc) => bloc.add(const GoogleSignInRequested()),
+      verify: (bloc) {
+        expect(bloc.state.isSigningInWithGoogle, isFalse);
+        expect(bloc.state.hasSession, isTrue);
+        expect(bloc.state.email, 'user@example.com');
+        verify(() => serverRepo.fetchServers()).called(1);
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'a cancelled sign-in leaves the state signed out',
+      setUp: () =>
+          when(() => subs.signInWithGoogle()).thenAnswer((_) async => null),
+      build: build,
+      act: (bloc) => bloc.add(const GoogleSignInRequested()),
+      verify: (bloc) {
+        expect(bloc.state.isSigningInWithGoogle, isFalse);
+        expect(bloc.state.hasSession, isFalse);
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'a failed sign-in surfaces a message and resets the spinner',
+      setUp: () =>
+          when(() => subs.signInWithGoogle()).thenThrow(Exception('boom')),
+      build: build,
+      act: (bloc) => bloc.add(const GoogleSignInRequested()),
+      verify: (bloc) {
+        expect(bloc.state.isSigningInWithGoogle, isFalse);
+        expect(bloc.state.hasSession, isFalse);
+        expect(bloc.state.message, isNotNull);
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'sessions requested loads the account\'s device sessions',
+      setUp: () => when(() => subs.listSessions()).thenAnswer(
+        (_) async => const [
+          UserSession(id: 1, deviceId: 'a', platform: 'android', active: true),
+          UserSession(id: 2, deviceId: 'b', platform: 'linux', active: true),
+        ],
+      ),
+      build: build,
+      act: (bloc) => bloc.add(const SessionsRequested()),
+      verify: (bloc) {
+        expect(bloc.state.isLoadingSessions, isFalse);
+        expect(bloc.state.sessions, hasLength(2));
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'revoking a session removes it and reloads the list',
+      setUp: () {
+        when(() => subs.revokeSession(2)).thenAnswer((_) async {});
+        when(() => subs.listSessions()).thenAnswer(
+          (_) async => const [
+            UserSession(id: 1, deviceId: 'a', platform: 'android', active: true),
+          ],
+        );
+      },
+      build: build,
+      act: (bloc) => bloc.add(const SessionRevoked(2)),
+      verify: (bloc) {
+        verify(() => subs.revokeSession(2)).called(1);
+        expect(bloc.state.sessions, hasLength(1));
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'signing out clears the session and returns to onboarding',
+      setUp: () => when(() => subs.signOut()).thenAnswer((_) async {}),
+      build: build,
+      seed: () => const VpnState(hasSession: true, email: 'user@example.com'),
+      act: (bloc) => bloc.add(const SignOutRequested()),
+      verify: (bloc) {
+        expect(bloc.state.hasSession, isFalse);
+        expect(bloc.state.email, isEmpty);
+        verify(() => subs.signOut()).called(1);
+      },
     );
   });
 }
