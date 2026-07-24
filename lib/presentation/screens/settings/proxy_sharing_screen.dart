@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../bloc/connection/connection_bloc.dart';
 import '../../bloc/vpn/vpn_bloc.dart';
 import '../../widgets/profile_settings/proxy_sharing_card.dart';
 
@@ -13,13 +14,13 @@ class ProxySharingScreen extends StatelessWidget {
     return BlocBuilder<VpnBloc, VpnState>(
       builder: (context, vpn) {
         final bloc = context.read<VpnBloc>();
+        final activePort = context.select<ConnectionBloc, int?>(
+          (b) => b.state.proxySharingPort,
+        );
         return ProxySharingCard(
           enabled: vpn.proxySharingEnabled,
           onEnabledChanged: (v) => bloc.add(ProxySharingToggled(v)),
-          port: vpn.proxySharingPort,
-          onPortChanged: (v) => bloc.add(ProxySharingPortChanged(v)),
-          onPersist: () =>
-              bloc.add(const ProxySharingSettingsPersistRequested()),
+          activePort: activePort,
         );
       },
     );

@@ -58,16 +58,12 @@ abstract class SettingsRepository {
 
   Future<void> saveLastExpiryWarningDate(DateTime date);
 
-  /// Desktop-only: whether this device shares its VPN tunnel via a local
-  /// SOCKS5 proxy, and which port it listens on.
+  /// Whether this device shares its VPN tunnel via a local SOCKS5 proxy. The
+  /// listening port isn't user-configurable — `ProxySharingController.start`
+  /// picks it automatically.
   Future<bool> getProxySharingEnabled();
 
-  Future<int> getProxySharingPort();
-
-  Future<void> saveProxySharingSettings({
-    required bool enabled,
-    required int port,
-  });
+  Future<void> saveProxySharingEnabled(bool enabled);
 
   /// Whether to fetch from the curated regional pool (servers pre-verified
   /// reachable from a specific ISP, e.g. Turkmenistan) instead of the full

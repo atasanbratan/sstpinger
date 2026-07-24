@@ -24,12 +24,18 @@ class VpnConnectionState extends Equatable {
   /// [VpnBloc]'s server selection.
   final String label;
 
+  /// The port the proxy-sharing SOCKS5 listener actually bound to (chosen
+  /// automatically — see [ProxySharingController.start]), or null when
+  /// proxy sharing is off/not yet started for this connection.
+  final int? proxySharingPort;
+
   const VpnConnectionState({
     required this.status,
     this.traffic,
     this.duration = Duration.zero,
     this.error,
     this.label = '',
+    this.proxySharingPort,
   });
 
   const VpnConnectionState.initial() : this(status: TunnelStatus.disconnected);
@@ -45,6 +51,8 @@ class VpnConnectionState extends Equatable {
     Duration? duration,
     ConnectionError? error,
     String? label,
+    int? proxySharingPort,
+    bool clearProxySharingPort = false,
   }) {
     return VpnConnectionState(
       status: status ?? this.status,
@@ -52,9 +60,13 @@ class VpnConnectionState extends Equatable {
       duration: duration ?? this.duration,
       error: error,
       label: label ?? this.label,
+      proxySharingPort: clearProxySharingPort
+          ? null
+          : (proxySharingPort ?? this.proxySharingPort),
     );
   }
 
   @override
-  List<Object?> get props => [status, traffic, duration, error, label];
+  List<Object?> get props =>
+      [status, traffic, duration, error, label, proxySharingPort];
 }

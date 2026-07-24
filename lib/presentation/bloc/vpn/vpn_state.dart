@@ -97,11 +97,11 @@ class VpnState extends Equatable {
   final bool softEtherDisableNatT;
   final int softEtherNatTRetryWaitSeconds;
 
-  /// Desktop only: whether this device shares its VPN tunnel via a local
-  /// SOCKS5 proxy other LAN devices can point at, and which port it listens
-  /// on. Takes effect on the next connect.
+  /// Whether this device shares its VPN tunnel via a local SOCKS5 proxy other
+  /// LAN devices can point at. Takes effect on the next connect; the
+  /// listening port isn't user-configurable — see `ConnectionBloc`'s
+  /// `proxySharingPort` for the live port once running.
   final bool proxySharingEnabled;
-  final int proxySharingPort;
 
   /// Whether to fetch from the curated regional pool (servers pre-verified
   /// reachable from a specific ISP) instead of the full server list.
@@ -165,7 +165,6 @@ class VpnState extends Equatable {
     this.softEtherDisableNatT = true,
     this.softEtherNatTRetryWaitSeconds = 15,
     this.proxySharingEnabled = false,
-    this.proxySharingPort = 1080,
     this.useCuratedRegion = false,
     this.serversFlatView = false,
     this.protocol = TunnelProtocol.sstp,
@@ -238,7 +237,6 @@ class VpnState extends Equatable {
     bool? softEtherDisableNatT,
     int? softEtherNatTRetryWaitSeconds,
     bool? proxySharingEnabled,
-    int? proxySharingPort,
     bool? useCuratedRegion,
     bool? serversFlatView,
     TunnelProtocol? protocol,
@@ -291,7 +289,6 @@ class VpnState extends Equatable {
       softEtherNatTRetryWaitSeconds:
           softEtherNatTRetryWaitSeconds ?? this.softEtherNatTRetryWaitSeconds,
       proxySharingEnabled: proxySharingEnabled ?? this.proxySharingEnabled,
-      proxySharingPort: proxySharingPort ?? this.proxySharingPort,
       useCuratedRegion: useCuratedRegion ?? this.useCuratedRegion,
       serversFlatView: serversFlatView ?? this.serversFlatView,
       protocol: protocol ?? this.protocol,
@@ -344,7 +341,6 @@ class VpnState extends Equatable {
     softEtherDisableNatT,
     softEtherNatTRetryWaitSeconds,
     proxySharingEnabled,
-    proxySharingPort,
     useCuratedRegion,
     serversFlatView,
     protocol,

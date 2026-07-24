@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/support_config.dart';
 import '../../core/utils/formatters.dart';
+import '../bloc/connection/connection_bloc.dart';
 import '../bloc/vpn/vpn_bloc.dart';
 import '../screens/settings/custom_node_screen.dart';
 import '../screens/settings/diagnostic_logs_screen.dart';
@@ -56,6 +57,14 @@ class ProfileSettingsSheet extends StatelessWidget {
 
   void _push(BuildContext context, Widget screen) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  String _proxySharingLabel(BuildContext context, VpnState vpn) {
+    if (!vpn.proxySharingEnabled) return 'Off';
+    final port = context.select<ConnectionBloc, int?>(
+      (b) => b.state.proxySharingPort,
+    );
+    return port == null ? 'On' : 'On · $port';
   }
 
   void _copyDeviceId(BuildContext context, String deviceId) {
@@ -225,9 +234,7 @@ class ProfileSettingsSheet extends StatelessWidget {
                     SettingsRow(
                       icon: Icons.share_rounded,
                       title: 'Proxy sharing',
-                      trailingText: vpn.proxySharingEnabled
-                          ? 'On · ${vpn.proxySharingPort}'
-                          : 'Off',
+                      trailingText: _proxySharingLabel(context, vpn),
                       showChevron: true,
                       onTap: () => showSettingsBottomSheet(
                         context,

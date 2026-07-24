@@ -40,3 +40,14 @@ class _TunnelReported extends ConnectionEvent {
   @override
   List<Object?> get props => [update];
 }
+
+/// Internal: the proxy-sharing listener finished (re)starting/stopping.
+/// Routed through an event, not a direct `emit`, because it resolves after
+/// the `_TunnelReported` handler that triggered it has already returned.
+class _ProxySharingPortReported extends ConnectionEvent {
+  final int? port;
+  const _ProxySharingPortReported(this.port);
+
+  @override
+  List<Object?> get props => [port];
+}

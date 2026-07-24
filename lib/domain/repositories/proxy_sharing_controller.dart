@@ -11,7 +11,14 @@ abstract class ProxySharingController {
 
   bool get isRunning;
 
-  Future<void> start(int port);
+  /// The port currently being listened on, or null when not running.
+  int? get port;
+
+  /// Starts listening and returns the port that ended up bound. The caller
+  /// does not pick a port — implementations try a sensible default first and
+  /// fall back to whatever the OS hands out if that one's taken, so callers
+  /// never have to handle a "port in use" failure themselves.
+  Future<int> start();
 
   Future<void> stop();
 

@@ -234,25 +234,15 @@ class SubscriptionSubmitted extends VpnEvent {
   List<Object?> get props => [network, txHash];
 }
 
-/// Desktop only: toggles sharing the VPN tunnel via a local SOCKS5 proxy.
+/// Toggles sharing the VPN tunnel via a local SOCKS5 proxy. The listening
+/// port isn't user-configurable — it's chosen automatically when the
+/// listener starts.
 class ProxySharingToggled extends VpnEvent {
   final bool enabled;
   const ProxySharingToggled(this.enabled);
 
   @override
   List<Object?> get props => [enabled];
-}
-
-class ProxySharingPortChanged extends VpnEvent {
-  final int port;
-  const ProxySharingPortChanged(this.port);
-
-  @override
-  List<Object?> get props => [port];
-}
-
-class ProxySharingSettingsPersistRequested extends VpnEvent {
-  const ProxySharingSettingsPersistRequested();
 }
 
 /// Toggles fetching from the curated regional pool vs. the full server list,

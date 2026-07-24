@@ -63,6 +63,14 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
     on<ConnectRequested>(_onConnect);
     on<DisconnectRequested>(_onDisconnect);
     on<_TunnelReported>(_onReported);
+    on<_ProxySharingPortReported>(
+      (event, emit) => emit(
+        state.copyWith(
+          proxySharingPort: event.port,
+          clearProxySharingPort: event.port == null,
+        ),
+      ),
+    );
     add(const ConnectionStarted());
   }
 
@@ -157,20 +165,27 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
               label: update.status == TunnelStatus.disconnected ? '' : null,
             ),
           );
-          unawaited(_proxySharing?.stop());
+          unawaited(_stopProxySharing());
         }
     }
   }
 
   /// Starts the local SOCKS5 listener if the user has proxy sharing enabled
-  /// in settings. No-op on platforms without [_proxySharing] (mobile).
+  /// in settings, letting it pick its own port (see
+  /// [ProxySharingController.start]). No-op on platforms without
+  /// [_proxySharing] (mobile).
   Future<void> _startProxySharingIfEnabled() async {
     final proxy = _proxySharing;
     if (proxy == null) return;
     final enabled = await _settings.getProxySharingEnabled();
     if (!enabled) return;
-    final port = await _settings.getProxySharingPort();
-    await proxy.start(port);
+    final port = await proxy.start();
+    add(_ProxySharingPortReported(port));
+  }
+
+  Future<void> _stopProxySharing() async {
+    await _proxySharing?.stop();
+    add(const _ProxySharingPortReported(null));
   }
 
   /// Reacts to a lost connection: either schedule a retry (staying in a
@@ -190,6 +205,7 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
           status: TunnelStatus.connecting,
           clearTraffic: true,
           duration: Duration.zero,
+          clearProxySharingPort: true,
           error: _error('Connection lost — reconnecting '
               '($_reconnectAttempt/$_retryCount)…'),
         ),
@@ -216,6 +232,7 @@ class ConnectionBloc extends Bloc<ConnectionEvent, VpnConnectionState> {
         clearTraffic: true,
         duration: Duration.zero,
         label: '',
+        clearProxySharingPort: true,
         error: _error(
           exhausted ? 'Reconnection failed after $_retryCount attempts.' : reason,
         ),

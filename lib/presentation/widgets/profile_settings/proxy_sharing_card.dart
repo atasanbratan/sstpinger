@@ -7,8 +7,9 @@ import '../../theme/app_colors.dart';
 import 'settings_card.dart';
 
 /// Lets other LAN devices route through this device's active VPN tunnel via a
-/// local SOCKS5 proxy. The port change only takes effect on the next connect
-/// (the listener only starts once the tunnel is up).
+/// local SOCKS5 proxy. The listener only starts once the tunnel is up, and
+/// picks its own port automatically (see `Socks5ProxyDataSource.start`) — this
+/// card only shows [activePort] once it's running, it never lets the user set one.
 ///
 /// Wired up on desktop (Linux/Windows) and Android — see
 /// [Socks5ProxyDataSource] and `ConnectionBloc`'s proxy-sharing hook. Shown on
@@ -18,17 +19,16 @@ import 'settings_card.dart';
 class ProxySharingCard extends StatelessWidget {
   final bool enabled;
   final ValueChanged<bool> onEnabledChanged;
-  final int port;
-  final ValueChanged<int> onPortChanged;
-  final VoidCallback onPersist;
+
+  /// The port the listener actually bound to, or null while the VPN is off
+  /// (or the listener hasn't started yet).
+  final int? activePort;
 
   const ProxySharingCard({
     super.key,
     required this.enabled,
     required this.onEnabledChanged,
-    required this.port,
-    required this.onPortChanged,
-    required this.onPersist,
+    required this.activePort,
   });
 
   bool get _unsupported =>
@@ -53,48 +53,12 @@ class ProxySharingCard extends StatelessWidget {
               Switch(
                 value: enabled,
                 activeThumbColor: AppColors.accent,
-                onChanged: (val) {
-                  onEnabledChanged(val);
-                  onPersist();
-                },
+                onChanged: onEnabledChanged,
               ),
             ],
           ),
           if (enabled) ...[
             const Divider(color: Colors.white10, height: 12),
-            Row(
-              children: [
-                const Icon(
-                  Icons.numbers_rounded,
-                  color: AppColors.accentSecondary,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Port',
-                    style: TextStyle(fontSize: 13, color: Colors.white),
-                  ),
-                ),
-                Text(
-                  '$port',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.accentSecondary,
-                  ),
-                ),
-              ],
-            ),
-            Slider(
-              value: port.toDouble(),
-              min: 1024,
-              max: 65535,
-              activeColor: AppColors.accentSecondary,
-              label: '$port',
-              onChanged: (v) => onPortChanged(v.round()),
-              onChangeEnd: (_) => onPersist(),
-            ),
-            const SizedBox(height: 4),
             if (_unsupported)
               const Text(
                 'Not yet functional on this device — the setting is saved '
@@ -102,11 +66,18 @@ class ProxySharingCard extends StatelessWidget {
                 'Windows, and Android.',
                 style: TextStyle(fontSize: 11, color: AppColors.connecting),
               )
+            else if (activePort == null)
+              const Text(
+                'Starts automatically once the VPN connects — the port is '
+                'chosen for you.',
+                style: TextStyle(fontSize: 11, color: AppColors.textFaint),
+              )
             else
               FutureBuilder<NetworkAddresses>(
                 future: currentNetworkAddresses(),
                 builder: (context, snapshot) {
                   final addresses = snapshot.data;
+                  final port = activePort!;
                   if (addresses == null) {
                     return const SizedBox.shrink();
                   }
@@ -116,7 +87,7 @@ class ProxySharingCard extends StatelessWidget {
                       const Padding(
                         padding: EdgeInsets.only(bottom: 4),
                         child: Text(
-                          'Once the VPN is on, connect a SOCKS5 client to:',
+                          'Connect a SOCKS5 client to:',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textFaint,
@@ -135,9 +106,7 @@ class ProxySharingCard extends StatelessWidget {
                       ),
                       _AddressRow(
                         label: "This device's VPN IP",
-                        address: addresses.vpnIp == null
-                            ? 'connect the VPN first'
-                            : addresses.vpnIp!,
+                        address: addresses.vpnIp ?? 'unavailable',
                       ),
                     ],
                   );

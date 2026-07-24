@@ -58,11 +58,8 @@ void main() {
         .thenAnswer((_) async => TunnelProtocol.sstp);
     when(() => settings.getProxySharingEnabled())
         .thenAnswer((_) async => false);
-    when(() => settings.getProxySharingPort()).thenAnswer((_) async => 1080);
-    when(() => settings.saveProxySharingSettings(
-          enabled: any(named: 'enabled'),
-          port: any(named: 'port'),
-        )).thenAnswer((_) async {});
+    when(() => settings.saveProxySharingEnabled(any()))
+        .thenAnswer((_) async {});
     when(() => settings.getLastExpiryWarningDate())
         .thenAnswer((_) async => null);
     when(() => settings.saveLastExpiryWarningDate(any()))
@@ -420,35 +417,13 @@ void main() {
 
   group('proxy sharing', () {
     blocTest<VpnBloc, VpnState>(
-      'toggling persists enabled with the current port',
+      'toggling persists the enabled flag',
       build: build,
       act: (bloc) => bloc.add(const ProxySharingToggled(true)),
       verify: (bloc) {
         expect(bloc.state.proxySharingEnabled, isTrue);
-        verify(() => settings.saveProxySharingSettings(
-              enabled: true,
-              port: 1080,
-            )).called(1);
+        verify(() => settings.saveProxySharingEnabled(true)).called(1);
       },
-    );
-
-    blocTest<VpnBloc, VpnState>(
-      'changing the port clamps to the valid range',
-      build: build,
-      act: (bloc) => bloc.add(const ProxySharingPortChanged(70000)),
-      verify: (bloc) => expect(bloc.state.proxySharingPort, 65535),
-    );
-
-    blocTest<VpnBloc, VpnState>(
-      'persist request saves the current enabled/port state',
-      build: build,
-      act: (bloc) => bloc
-        ..add(const ProxySharingPortChanged(9050))
-        ..add(const ProxySharingSettingsPersistRequested()),
-      verify: (_) => verify(() => settings.saveProxySharingSettings(
-            enabled: false,
-            port: 9050,
-          )).called(1),
     );
   });
 

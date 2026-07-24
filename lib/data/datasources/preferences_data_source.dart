@@ -43,7 +43,6 @@ class PreferencesDataSource {
   static const String _keyFetchServerCount = 'fetch_server_count';
   static const String _keyLastExpiryWarningDate = 'last_expiry_warning_date';
   static const String _keyProxySharingEnabled = 'proxy_sharing_enabled';
-  static const String _keyProxySharingPort = 'proxy_sharing_port';
   static const String _keyUseCuratedRegion = 'use_curated_region';
 
   static const int defaultPingTimeoutMs = 1500;
@@ -67,7 +66,6 @@ class PreferencesDataSource {
   static const int defaultSoftEtherNatTRetryWaitSec = 15;
 
   static const bool defaultProxySharingEnabled = false;
-  static const int defaultProxySharingPort = 1080;
 
   // Full list by default; the curated pool is an opt-in for whichever ISP
   // it's built for (see SettingsRepository.getUseCuratedRegion doc).
@@ -291,26 +289,18 @@ class PreferencesDataSource {
     await prefs.setString(_keyProtocol, protocol.name);
   }
 
-  /// Desktop-only: whether this device shares its VPN tunnel via a local
-  /// SOCKS5 proxy, and which port it listens on.
+  /// Whether this device shares its VPN tunnel via a local SOCKS5 proxy. The
+  /// port isn't stored here — it's chosen automatically each time the
+  /// listener starts (`ProxySharingController.start`).
   Future<bool> getProxySharingEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyProxySharingEnabled) ??
         defaultProxySharingEnabled;
   }
 
-  Future<int> getProxySharingPort() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_keyProxySharingPort) ?? defaultProxySharingPort;
-  }
-
-  Future<void> saveProxySharingSettings({
-    required bool enabled,
-    required int port,
-  }) async {
+  Future<void> saveProxySharingEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyProxySharingEnabled, enabled);
-    await prefs.setInt(_keyProxySharingPort, port);
   }
 
   Future<PingMode> getPingMode() async {

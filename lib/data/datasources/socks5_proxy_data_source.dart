@@ -14,6 +14,11 @@ import '../../domain/repositories/proxy_sharing_controller.dart';
 /// over it, so relaying a client is just two-way byte piping — no manual
 /// packet routing.
 class Socks5ProxyDataSource implements ProxySharingController {
+  /// Tried first since it's the conventional SOCKS5 port people expect; if
+  /// something else already holds it, [start] falls back to port 0 (OS picks
+  /// any free one) rather than failing.
+  static const int _preferredPort = 1080;
+
   ServerSocket? _server;
   final List<Socket> _clientSockets = [];
   final StreamController<int> _clientCount = StreamController.broadcast();
@@ -25,14 +30,24 @@ class Socks5ProxyDataSource implements ProxySharingController {
   bool get isRunning => _server != null;
 
   @override
-  Future<void> start(int port) async {
-    if (_server != null) return;
-    _server = await ServerSocket.bind(InternetAddress.anyIPv4, port);
-    logLine('[socks5] listening on ${InternetAddress.anyIPv4.address}:$port');
+  int? get port => _server?.port;
+
+  @override
+  Future<int> start() async {
+    if (_server case final running?) return running.port;
+    try {
+      _server =
+          await ServerSocket.bind(InternetAddress.anyIPv4, _preferredPort);
+    } on SocketException {
+      _server = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    }
+    final bound = _server!.port;
+    logLine('[socks5] listening on ${InternetAddress.anyIPv4.address}:$bound');
     _server!.listen(
       _handleClient,
       onError: (e) => logLine('[socks5] server error: $e'),
     );
+    return bound;
   }
 
   @override

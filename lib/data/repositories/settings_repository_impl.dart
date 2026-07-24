@@ -92,13 +92,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
   Future<bool> getProxySharingEnabled() => _prefs.getProxySharingEnabled();
 
   @override
-  Future<int> getProxySharingPort() => _prefs.getProxySharingPort();
-
-  @override
-  Future<void> saveProxySharingSettings({
-    required bool enabled,
-    required int port,
-  }) => _prefs.saveProxySharingSettings(enabled: enabled, port: port);
+  Future<void> saveProxySharingEnabled(bool enabled) =>
+      _prefs.saveProxySharingEnabled(enabled);
 
   @override
   Future<bool> getUseCuratedRegion() => _prefs.getUseCuratedRegion();

@@ -91,8 +91,6 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     on<SoftEtherNatTRetryWaitChanged>(_onSoftEtherNatTRetryWait);
     on<SoftEtherNatTSettingsPersistRequested>(_onPersistSoftEtherNatT);
     on<ProxySharingToggled>(_onProxySharingToggled);
-    on<ProxySharingPortChanged>(_onProxySharingPort);
-    on<ProxySharingSettingsPersistRequested>(_onPersistProxySharing);
     on<RegionPoolChanged>(_onRegionPool);
     on<ServersViewModeChanged>(_onServersViewMode);
     on<ProtocolChanged>(_onProtocol);
@@ -122,7 +120,6 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     final disableNatT = await _settings.getSoftEtherDisableNatT();
     final natTRetryWait = await _settings.getSoftEtherNatTRetryWaitSeconds();
     final proxySharingEnabled = await _settings.getProxySharingEnabled();
-    final proxySharingPort = await _settings.getProxySharingPort();
     final useCuratedRegion = await _settings.getUseCuratedRegion();
     final flatView = await _settings.getServersFlatView();
     final protocol = await _settings.getProtocol();
@@ -148,7 +145,6 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
         softEtherDisableNatT: disableNatT,
         softEtherNatTRetryWaitSeconds: natTRetryWait,
         proxySharingEnabled: proxySharingEnabled,
-        proxySharingPort: proxySharingPort,
         useCuratedRegion: useCuratedRegion,
         serversFlatView: flatView,
         protocol: protocol,
@@ -493,24 +489,8 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
     Emitter<VpnState> emit,
   ) async {
     emit(state.copyWith(proxySharingEnabled: event.enabled));
-    await _settings.saveProxySharingSettings(
-      enabled: event.enabled,
-      port: state.proxySharingPort,
-    );
+    await _settings.saveProxySharingEnabled(event.enabled);
   }
-
-  void _onProxySharingPort(
-    ProxySharingPortChanged event,
-    Emitter<VpnState> emit,
-  ) => emit(state.copyWith(proxySharingPort: event.port.clamp(1024, 65535)));
-
-  Future<void> _onPersistProxySharing(
-    ProxySharingSettingsPersistRequested event,
-    Emitter<VpnState> emit,
-  ) => _settings.saveProxySharingSettings(
-    enabled: state.proxySharingEnabled,
-    port: state.proxySharingPort,
-  );
 
   Future<void> _onRegionPool(
     RegionPoolChanged event,
