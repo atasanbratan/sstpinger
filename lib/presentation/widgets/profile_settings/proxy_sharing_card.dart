@@ -103,25 +103,79 @@ class ProxySharingCard extends StatelessWidget {
                 style: TextStyle(fontSize: 11, color: AppColors.connecting),
               )
             else
-              FutureBuilder<String?>(
-                future: currentLanIp(),
+              FutureBuilder<NetworkAddresses>(
+                future: currentNetworkAddresses(),
                 builder: (context, snapshot) {
-                  final ip = snapshot.data;
-                  final text = ip == null
-                      ? 'Connect once the VPN is on — point other devices\' '
-                            'SOCKS5 client at this machine\'s LAN IP, port $port.'
-                      : 'Point other devices\' SOCKS5 client at $ip:$port '
-                            'once the VPN is on.';
-                  return Text(
-                    text,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textFaint,
-                    ),
+                  final addresses = snapshot.data;
+                  if (addresses == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'Once the VPN is on, connect a SOCKS5 client to:',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textFaint,
+                          ),
+                        ),
+                      ),
+                      _AddressRow(
+                        label: 'Other devices on this network',
+                        address: addresses.lanIp == null
+                            ? 'unavailable'
+                            : '${addresses.lanIp}:$port',
+                      ),
+                      _AddressRow(
+                        label: 'This device only',
+                        address: '127.0.0.1:$port',
+                      ),
+                      _AddressRow(
+                        label: "This device's VPN IP",
+                        address: addresses.vpnIp == null
+                            ? 'connect the VPN first'
+                            : addresses.vpnIp!,
+                      ),
+                    ],
                   );
                 },
               ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AddressRow extends StatelessWidget {
+  final String label;
+  final String address;
+
+  const _AddressRow({required this.label, required this.address});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: AppColors.textFaint),
+            ),
+          ),
+          Text(
+            address,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.accentSecondary,
+            ),
+          ),
         ],
       ),
     );
