@@ -19,6 +19,7 @@ import '../theme/app_colors.dart';
 import '../widgets/apk_download_sheet.dart';
 import '../widgets/app_update_banner.dart';
 import '../widgets/app_update_dialog.dart';
+import '../widgets/google_link_nudge_dialog.dart';
 import '../widgets/profile_settings_sheet.dart';
 import '../widgets/server_list_view.dart';
 import 'main_vpn_screen/connection_hero.dart';
@@ -342,6 +343,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           listenWhen: (p, c) =>
               c.appUpdateInfo != p.appUpdateInfo && _version.isNotEmpty,
           listener: (context, state) => _maybeShowForcedDialog(state),
+        ),
+        // One-time nudge, offered right after a trial/subscription success
+        // while not signed in — never blocks trial/payment, just offers
+        // recoverable access.
+        BlocListener<VpnBloc, VpnState>(
+          listenWhen: (p, c) =>
+              c.googleLinkNudge != null &&
+              c.googleLinkNudge!.id != p.googleLinkNudge?.id,
+          listener: (context, _) => GoogleLinkNudgeDialog.show(
+            context,
+            onSignIn: () =>
+                context.read<VpnBloc>().add(const GoogleSignInRequested()),
+          ),
         ),
       ],
       child: BlocBuilder<VpnBloc, VpnState>(

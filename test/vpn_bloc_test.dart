@@ -559,4 +559,55 @@ void main() {
       },
     );
   });
+
+  group('Google account-link nudge', () {
+    blocTest<VpnBloc, VpnState>(
+      'a successful trial offers linking a Google account when not signed in',
+      setUp: () {
+        when(() => subs.startFreeTrial()).thenAnswer((_) async => []);
+        when(() => subs.hasSeenGoogleLinkPrompt())
+            .thenAnswer((_) async => false);
+        when(() => subs.markGoogleLinkPromptSeen()).thenAnswer((_) async {});
+      },
+      build: build,
+      seed: () => const VpnState(googleSignInAvailable: true),
+      act: (bloc) => bloc.add(const FreeTrialRequested()),
+      verify: (bloc) {
+        expect(bloc.state.googleLinkNudge, isNotNull);
+        verify(() => subs.markGoogleLinkPromptSeen()).called(1);
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'does not offer the nudge again once already seen',
+      setUp: () {
+        when(() => subs.startFreeTrial()).thenAnswer((_) async => []);
+        when(() => subs.hasSeenGoogleLinkPrompt())
+            .thenAnswer((_) async => true);
+      },
+      build: build,
+      seed: () => const VpnState(googleSignInAvailable: true),
+      act: (bloc) => bloc.add(const FreeTrialRequested()),
+      verify: (bloc) {
+        expect(bloc.state.googleLinkNudge, isNull);
+        verifyNever(() => subs.markGoogleLinkPromptSeen());
+      },
+    );
+
+    blocTest<VpnBloc, VpnState>(
+      'does not offer the nudge when already signed in',
+      setUp: () => when(() => subs.startFreeTrial()).thenAnswer((_) async => []),
+      build: build,
+      seed: () => const VpnState(
+        googleSignInAvailable: true,
+        hasSession: true,
+        email: 'user@example.com',
+      ),
+      act: (bloc) => bloc.add(const FreeTrialRequested()),
+      verify: (bloc) {
+        expect(bloc.state.googleLinkNudge, isNull);
+        verifyNever(() => subs.hasSeenGoogleLinkPrompt());
+      },
+    );
+  });
 }

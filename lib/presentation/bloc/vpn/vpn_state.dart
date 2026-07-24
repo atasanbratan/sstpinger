@@ -15,6 +15,18 @@ class VpnMessage extends Equatable {
 
 enum VpnActionKind { activation, trial, subscription }
 
+/// A one-shot signal to offer linking a Google account, shown at most once
+/// (right after the first trial/subscription success while not signed in) so
+/// access is recoverable across reinstalls without gating trial/payment on
+/// sign-in. See `VpnBloc._afterUnlock`.
+class VpnGoogleLinkNudge extends Equatable {
+  final int id;
+  const VpnGoogleLinkNudge(this.id);
+
+  @override
+  List<Object?> get props => [id];
+}
+
 /// The one-shot outcome of an onboarding action (activation / trial /
 /// subscription), so a screen can navigate or pop on success.
 class VpnActionResult extends Equatable {
@@ -107,6 +119,7 @@ class VpnState extends Equatable {
 
   final VpnMessage? message;
   final VpnActionResult? actionResult;
+  final VpnGoogleLinkNudge? googleLinkNudge;
   final ServerSyncStatus syncStatus;
 
   /// App-update advertisement the backend piggybacked onto the last fetch.
@@ -161,6 +174,7 @@ class VpnState extends Equatable {
     this.isSubmittingSubscription = false,
     this.message,
     this.actionResult,
+    this.googleLinkNudge,
     this.syncStatus = ServerSyncStatus.initial,
     this.appUpdateInfo = AppUpdateInfo.none,
     this.updateBannerDismissed = false,
@@ -233,6 +247,7 @@ class VpnState extends Equatable {
     bool? isSubmittingSubscription,
     VpnMessage? message,
     VpnActionResult? actionResult,
+    VpnGoogleLinkNudge? googleLinkNudge,
     ServerSyncStatus? syncStatus,
     AppUpdateInfo? appUpdateInfo,
     bool? updateBannerDismissed,
@@ -285,9 +300,11 @@ class VpnState extends Equatable {
       isStartingTrial: isStartingTrial ?? this.isStartingTrial,
       isSubmittingSubscription:
           isSubmittingSubscription ?? this.isSubmittingSubscription,
-      // message/actionResult are one-shot: not carried forward unless re-set.
+      // message/actionResult/googleLinkNudge are one-shot: not carried
+      // forward unless re-set.
       message: message,
       actionResult: actionResult,
+      googleLinkNudge: googleLinkNudge,
       syncStatus: syncStatus ?? this.syncStatus,
       appUpdateInfo: appUpdateInfo ?? this.appUpdateInfo,
       updateBannerDismissed: updateBannerDismissed ?? this.updateBannerDismissed,
@@ -336,6 +353,7 @@ class VpnState extends Equatable {
     isSubmittingSubscription,
     message,
     actionResult,
+    googleLinkNudge,
     syncStatus,
     appUpdateInfo,
     updateBannerDismissed,

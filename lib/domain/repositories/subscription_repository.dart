@@ -59,4 +59,12 @@ abstract class SubscriptionRepository {
 
   /// Revokes one of the account's own sessions by id.
   Future<void> revokeSession(int id);
+
+  /// Whether the one-time "sign in to keep access" nudge has already been
+  /// shown (it's offered at most once, after the first trial/subscription
+  /// success while not signed in — see `VpnBloc._afterUnlock`).
+  Future<bool> hasSeenGoogleLinkPrompt();
+
+  /// Marks the nudge as shown, regardless of what the user chose.
+  Future<void> markGoogleLinkPromptSeen();
 }

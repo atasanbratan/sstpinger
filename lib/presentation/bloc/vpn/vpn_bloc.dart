@@ -42,6 +42,7 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
 
   int _msgSeq = 0;
   int _actionSeq = 0;
+  int _linkNudgeSeq = 0;
 
   VpnBloc({
     required FetchServers fetchServers,
@@ -757,6 +758,24 @@ class VpnBloc extends Bloc<VpnEvent, VpnState> {
       ),
     );
     add(const PingRequested(isConnected: false));
+    await _maybeOfferGoogleLink(kind, emit);
+  }
+
+  /// Offers linking a Google account at most once, right after a trial or
+  /// subscription succeeds while the user isn't signed in — so access is
+  /// recoverable across reinstalls without gating trial/payment on sign-in
+  /// (unlike the account itself, an activation code isn't tied to a device).
+  Future<void> _maybeOfferGoogleLink(
+    VpnActionKind kind,
+    Emitter<VpnState> emit,
+  ) async {
+    if (kind != VpnActionKind.trial && kind != VpnActionKind.subscription) {
+      return;
+    }
+    if (state.hasSession || !state.googleSignInAvailable) return;
+    if (await _subs.hasSeenGoogleLinkPrompt()) return;
+    await _subs.markGoogleLinkPromptSeen();
+    emit(state.copyWith(googleLinkNudge: VpnGoogleLinkNudge(++_linkNudgeSeq)));
   }
 
   VpnMessage _msg(String text, {bool isError = true}) =>

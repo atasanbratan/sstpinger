@@ -21,6 +21,9 @@ class PreferencesDataSource {
   // backend's /api/auth/google, and the signed-in account email (display only).
   static const String _keySessionToken = 'session_token';
   static const String _keyAccountEmail = 'account_email';
+  // Whether the "sign in to keep access" nudge has already been shown once
+  // after a trial/subscription success, so it never nags twice.
+  static const String _keyGoogleLinkPromptSeen = 'google_link_prompt_seen';
   static const String _keyExpireTime = 'subscription_expire_time';
   static const String _keyLastFetch = 'servers_last_fetch';
   static const String _keyPingTimeoutMs = 'ping_timeout_ms';
@@ -106,6 +109,16 @@ class PreferencesDataSource {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keySessionToken);
     await prefs.remove(_keyAccountEmail);
+  }
+
+  Future<bool> getGoogleLinkPromptSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyGoogleLinkPromptSeen) ?? false;
+  }
+
+  Future<void> saveGoogleLinkPromptSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyGoogleLinkPromptSeen, true);
   }
 
   Future<String> getOrCreateDeviceId() async {

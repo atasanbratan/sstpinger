@@ -157,6 +157,12 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
     await _remote.revokeSession(sessionToken: token, id: id);
   }
 
+  @override
+  Future<bool> hasSeenGoogleLinkPrompt() => _prefs.getGoogleLinkPromptSeen();
+
+  @override
+  Future<void> markGoogleLinkPromptSeen() => _prefs.saveGoogleLinkPromptSeen();
+
   /// A stable username is generated on first use and reused for renewals so the
   /// subscription stays tied to this install (legacy, non-Google path).
   Future<String> _getOrCreateUsername() async {
