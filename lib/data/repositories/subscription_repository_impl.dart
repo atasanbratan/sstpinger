@@ -116,14 +116,31 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
   @override
   Future<void> signOut() async {
     final token = await _prefs.getSessionToken();
-    // Best-effort backend revoke of *this* device's session is implicit: the
-    // token is simply dropped locally. (Per-session revoke is available via
-    // revokeSession for the management screen.)
     if (token.isNotEmpty) {
-      // Nothing server-side to call for a plain sign-out; keep it local.
+      await _revokeCurrentSession(token);
     }
     await _google.signOut();
     await _prefs.clearSession();
+  }
+
+  /// Best-effort revoke of *this* device's session on the backend, so signing
+  /// out doesn't leave a "ghost" session occupying a slot until it's separately
+  /// revoked or naturally evicted. The API has no "revoke my own session"
+  /// shortcut, so this looks its row up by device id first. Never throws —
+  /// local sign-out must succeed regardless of backend/network state.
+  Future<void> _revokeCurrentSession(String token) async {
+    try {
+      final deviceId = await _prefs.getOrCreateDeviceId();
+      final sessions = await _remote.listSessions(sessionToken: token);
+      for (final session in sessions) {
+        if (session.deviceId == deviceId) {
+          await _remote.revokeSession(sessionToken: token, id: session.id);
+          break;
+        }
+      }
+    } catch (_) {
+      // Ignore — sign-out proceeds locally regardless.
+    }
   }
 
   @override
